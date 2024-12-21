@@ -96,7 +96,7 @@ const Main = () => {
 
 	const generatePDF = () => {
 		// Send the raw Markdown content to the backend
-		fetch('http://localhost:5001/convert', {
+		fetch('http://4.188.110.145:5001/convert', {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
@@ -113,7 +113,7 @@ const Main = () => {
 				console.log('Markdown content sent successfully to backend:', data.message);
 
 				// Now fetch the generated HTML from the backend after it's processed
-				return fetch('http://localhost:5001/download-pdf', {
+				return fetch('http://4.188.110.145:5001/download-pdf', {
 					method: 'GET',
 				});
 			})
@@ -126,9 +126,14 @@ const Main = () => {
 			.then(htmlContent => {
 				// Open the HTML content in a new tab
 				const newTab = window.open();
-				newTab.document.open();
-				newTab.document.write(htmlContent);
-				newTab.document.close();
+				if(newTab){
+					newTab.document.open();
+					newTab.document.write(htmlContent);
+					newTab.document.close();
+				}else{
+					console.error('Failed to open a new Tab')
+				}
+				
 			})
 			.catch(error => {
 				console.error('Error during the process:', error);
@@ -170,7 +175,7 @@ const Main = () => {
 			socket.send(JSON.stringify({ type: 'query', query }));
 		}
 		try {
-			fetch('http://localhost:5001/query', {
+			fetch('http://4.188.110.145:5001/query', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
@@ -229,7 +234,7 @@ const Main = () => {
 
 				try {
 					// Send a POST request
-					const response = await fetch('http://localhost:8000/upload', {
+					const response = await fetch('http://4.188.110.145:8000/upload', {
 						method: 'POST',
 						body: formData,
 					});
@@ -276,7 +281,7 @@ const Main = () => {
 		const buttonContainer = document.querySelector(".button-container");
 
 		// Check if the clicked element is not the dropdown or the button
-		if (!buttonContainer.contains(event.target)) {
+		if (dropdown && buttonContainer && !buttonContainer.contains(event.target)) {
 			dropdown.style.display = "none";
 		}
 	};
@@ -284,7 +289,7 @@ const Main = () => {
 	useEffect(() => {
 
 		try {
-			const ws = new WebSocket('ws://localhost:8090');
+			const ws = new WebSocket('ws://4.188.110.145:8090');
 
 			ws.onopen = () => {
 				console.log('WebSocket connected to agent server');
@@ -323,7 +328,7 @@ const Main = () => {
 	}, []);
 
 	useEffect(() => {
-		const ws = new WebSocket('ws://localhost:8080');
+		const ws = new WebSocket('ws://4.188.110.145:8080');
 		try {
 			ws.onopen = () => {
 				console.log('WebSocket connected');
@@ -602,7 +607,7 @@ const Main = () => {
 							}}
 						/>
 						<div>
-							<img src={assets.attach_icon} class="upload" onClick={!resp.current ? toggleDropdown : null} />
+							<img src={assets.attach_icon} className="upload" onClick={!resp.current ? toggleDropdown : null} />
 							<img
 								src={assets.send_icon}
 								alt=""
@@ -618,7 +623,7 @@ const Main = () => {
 				{isDropdownOpen && (
 					<>
 						{/* Overlay */}
-						<div class="overlay" onClick={closeDropdown}></div>
+						<div className="overlay" onClick={closeDropdown}></div>
 
 						{/* Dropdown Content */}
 						<div id="dropdown" className="dropdown-content">

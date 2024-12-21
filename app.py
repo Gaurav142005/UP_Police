@@ -6,8 +6,8 @@ import json
 app = Flask(__name__)
 CORS(app)  
 
-with open('companies.json', 'w') as file:
-    json.dump([], file)
+# with open('companies.json', 'w') as file:
+#     json.dump([], file)
 
 @app.route('/query', methods=['POST'])
 def handle_query():
@@ -43,4 +43,4 @@ def download_pdf():
     return send_file(output_file, as_attachment=True, download_name='pathway.html', mimetype='text/html')
 
 if __name__ == '__main__':
-    app.run(port=5001, debug=True)  # Run Flask server on port 5001
+    app.run(host='http://4.188.110.145',port=5001, debug=True)  # Run Flask server on port 5001
