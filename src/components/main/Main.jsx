@@ -394,7 +394,7 @@ const Main = () => {
 								<div className="greet">
 									<TypeAnimation
 										sequence={[
-											'Hello, Team 30!',
+											'Hello, Researcher!',
 										]}
 										speed={{ type: 'keyStrokeDelayInMs', value: 100 }}
 										style={{ fontSize: '1em' }}

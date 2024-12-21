@@ -20,6 +20,7 @@
     "html2pdf": "^0.0.11",
     "html2pdf.js": "^0.10.2",
     "jspdf": "^2.5.2",
+    "katex": "^0.16.18",
     "lucide-react": "^0.462.0",
     "markdown-it": "^14.1.0",
     "marked": "^15.0.3",
@@ -39,8 +40,10 @@
     "react-plotly.js": "^2.6.0",
     "react-type-animation": "^3.2.0",
     "reactflow": "^11.11.4",
+    "rehype-katex": "^7.0.1",
     "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.0",
+    "remark-math": "^6.0.0",
     "turndown": "^7.2.0",
     "zero-md": "^3.1.6"
   },
