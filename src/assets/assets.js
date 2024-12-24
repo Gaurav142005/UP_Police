@@ -18,7 +18,7 @@ import pway_icon from './pway.png'
 import edit_icon from './edit_icon.png'
 import attach_icon from './attachment.png'
 import download_icon from './downloads.png'
-import main_logo from './main_logo.png'
+import main_logo from './dart_3gpp.png'
 
 export const assets = {
 	history_icon,

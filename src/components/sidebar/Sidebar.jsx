@@ -144,7 +144,8 @@ const Sidebar = () => {
 					<div className="bottom-item recent-entry" onClick={openFilePopup}>
 						<img src={assets.history_icon}
 							alt=""
-							title="Files" />
+							title="Files"
+							 />
 						{extended ? <p>Files</p> : null}
 					</div>
 					<div className="bottom-item recent-entry" onClick={openPopup}>

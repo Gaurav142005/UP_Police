@@ -16,7 +16,7 @@
   top: 0;
   right: 0;
   height: 100%;
-  width: 500px; /* Fixed width */
+  width: 400px; /* Fixed width */
   background-color: white;
   transform: translateX(100%); /* Initially hidden (off-screen) */
   transition: transform 0.5s ease;
@@ -38,7 +38,7 @@
   position: absolute;
   top: 100px;
   right: 0;
-  background: -webkit-linear-gradient(96deg,#315aa0,#4d4feb);
+  background: -webkit-linear-gradient(96deg,#315aa0,#75d91f);
   color: white;
   height: 60px;
   border: none;
@@ -51,7 +51,7 @@
 }
 
 .toggle-button.open {
-  transform: translateX(-500px); /* Moves left with the graph bar */
+  transform: translateX(-400px); /* Moves left with the graph bar */
 }
 
 /* Buttons container inside the graph bar */
@@ -77,7 +77,8 @@
 }
 
 .graph-button.on {
-  background: -webkit-linear-gradient(96deg,#315aa0,#4d4feb);
+  background: -webkit-linear-gradient(96deg,#315aa0,#75d91f);
+  width: 60%;
 }
 
 .graph-button.off {

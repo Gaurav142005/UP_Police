@@ -47,13 +47,15 @@
 .sidebar.extended{
     animation: openn 0.5s ease-in-out;
     width: 200px;
-    background: -webkit-linear-gradient(96deg,#131c2c,#2427a0);
+    font-family: 'Montserrat', sans-serif;
+    color: #75d91f;
+    background: -webkit-linear-gradient(96deg,#131c2c,#292a28);
 }
 
 .sidebar.collapsed{
     animation: close 0.5s ease-in-out;
     width: 120px;
-    background: -webkit-linear-gradient(96deg,#131c2c,#2427a0);
+    background: -webkit-linear-gradient(96deg,#131c2c,#292a28);
     /* background-color: white; */
 }
 
@@ -96,7 +98,7 @@
 .sidebar .recent-title{
     margin-top: 30px;
     margin-bottom: 20px;
-    color: #e2e6eb;
+    color: #75d91f;
 }
 .sidebar .recent-entry{
     display: flex;
@@ -108,12 +110,12 @@
 }
 
 .sidebar.extended .recent-entry{
-    color: #e2e6eb;
+    color: #75d91f;
 }
 
 .sidebar.extended .recent-entry:hover{
-    background-color: #3535ee;
-    color: white;
+    background-color: #75d91f;
+    color: #75d91f;
 }
 
 .sidebar .bottom{
@@ -188,7 +190,7 @@
 
 /* Form styling */
 .custom-form {
-  font-family: Arial, sans-serif;
+  font-family: 'Montserrat', sans-serif;
 }
 
 .custom-form h2 {
@@ -231,7 +233,7 @@
 .custom-form button {
   width: 100%;
   padding: 12px;
-  background: -webkit-linear-gradient(96deg,#315aa0,#4d4feb);
+  background: -webkit-linear-gradient(96deg,#315aa0,#75d91f);
   color: #fff;
   border: none;
   border-radius: 6px;

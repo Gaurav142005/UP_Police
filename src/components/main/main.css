@@ -66,7 +66,7 @@
 }
 .main .greet span{
     /* background: -webkit-linear-gradient(96deg,#315aa0,#4d4feb); */
-    background: -webkit-linear-gradient(16deg,#4b90ff,#131c2c);
+    background: -webkit-linear-gradient(16deg,#75d91f,#131c2c);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
 
@@ -259,7 +259,7 @@ animation: loader 4s infinite linear;
   .inner:before {
     content: "YES";
     padding-left: 10px;
-    background-color: #1C1CF0;
+    background-color: #75d91f;
     color: #fff;
   }
   .inner:after {
