@@ -43,4 +43,4 @@ def download_pdf():
     return send_file(output_file, as_attachment=True, download_name='pathway.html', mimetype='text/html')
 
 if __name__ == '__main__':
-    app.run(host='http://4.188.110.145',port=5001, debug=True)  # Run Flask server on port 5001
+    app.run(host='0.0.0.0',port=5001, debug=True)  # Run Flask server on port 5001

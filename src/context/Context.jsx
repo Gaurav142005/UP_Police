@@ -4,9 +4,6 @@ import runChat from "../config/Gemini";
 export const Context = createContext();
 
 
-
-
-
 const ContextProvider = (props) => {
 	const [input, setInput] = useState("");
 	const [recentPrompt, setRecentPrompt] = useState("");
@@ -25,6 +22,7 @@ const ContextProvider = (props) => {
 	const [fileHistory, setFileHistory] = useState([]);		// State to store the file history
 	const [isUpload, setIsUpload] = useState(false);		// State to check if the user is uploading a file
 	const [totalDisplayedCharsRef, setTotalDisplayedCharsRef] = useState(0); // State to track total displayed chars
+	const [prevResults, setPrevResults] = useState([]);
 	const pendingDataRef = useRef([]);
 	const resp = useRef(false);
 
@@ -202,6 +200,8 @@ const ContextProvider = (props) => {
 		onRender,
 		setInput,
 		showResults,
+		prevResults,
+    	setPrevResults,
 		setLoading,
 		loading,
 		resultData,

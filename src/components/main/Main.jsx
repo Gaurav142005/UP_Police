@@ -34,6 +34,7 @@ const Main = () => {
 		setSocket,
 		agentData,
 		setAgentData,
+		setPrevResults,
 		onRenderAgent,
 		prevPrompts,
 		setPrevPrompts,
