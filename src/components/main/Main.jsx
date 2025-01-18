@@ -45,6 +45,7 @@ const Main = () => {
 		resp,
 		isUpload,
 		setIsUpload,
+
 	} = useContext(Context);
 	const [socket1, setSocket1] = useState(null);
 
@@ -60,7 +61,6 @@ const Main = () => {
 	const ToggleSwitch = ({ label }) => {
 
 		const handleToggle = () => {
-			// isChecked.current = !isChecked.current; // Toggle the checkbox state
 			setIsChecked(!isChecked);
 			let query = !isChecked
 			if (socket && socket.readyState === WebSocket.OPEN) {
@@ -97,7 +97,7 @@ const Main = () => {
 
 	const generatePDF = () => {
 		// Send the raw Markdown content to the backend
-		fetch('http://4.188.110.145:5001/convert', {
+		fetch('http://127.0.0.1:5001/convert', {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
@@ -114,7 +114,7 @@ const Main = () => {
 				console.log('Markdown content sent successfully to backend:', data.message);
 
 				// Now fetch the generated HTML from the backend after it's processed
-				return fetch('http://4.188.110.145:5001/download-pdf', {
+				return fetch('http://127.0.0.1:5001/download-pdf', {
 					method: 'GET',
 				});
 			})
@@ -172,20 +172,24 @@ const Main = () => {
 		setChatNo(chatNo + 1);
 
 		let query = input;
+		console.log(query);
 		if (socket && socket.readyState === WebSocket.OPEN) {
 			socket.send(JSON.stringify({ type: 'query', query }));
 		}
 		try {
-			fetch('http://4.188.110.145:5001/query', {
+			fetch('http://127.0.0.1:5001/query', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
 				},
 				body: JSON.stringify({ query: input }), // Send input to the Flask backend
-			});
+			}).then((res) =>
+				res.json().then((data) => {
+					setResultData(data);
+				})
+			);
 
-			console.log('Query sent successfully!');
-
+			console.log(resultData);
 		} catch (error) {
 			console.error('Error sending query to backend:', error);
 			setLoading(false);
@@ -337,7 +341,6 @@ const Main = () => {
 			ws.onmessage = (event) => {
 				try {
 					const data = JSON.parse(event.data);
-					// console.log(data);
 					if (data.type === 'graph') {
 
 						const graph = JSON.parse(data.response);
@@ -380,11 +383,11 @@ const Main = () => {
 			}
 		}}>
 			<div className="nav">
-				<img src={assets.main_logo} className="pway" alt="" />
+				
+				<img src={assets.UPpolice_logo} className="uppLogo" alt="" />
 				<div className="rightside">
 					<Dropdown />
 					<ToggleSwitch label={"Docs"} />
-					<img src={assets.user} className="user" alt="" />
 				</div>
 			</div>
 			<div className="main-content">
@@ -395,7 +398,7 @@ const Main = () => {
 								<div className="greet">
 									<TypeAnimation
 										sequence={[
-											'Hello, Researcher!',
+											'Hello, Officer!'
 										]}
 										speed={{ type: 'keyStrokeDelayInMs', value: 100 }}
 										style={{ fontSize: '1em' }}
@@ -406,11 +409,10 @@ const Main = () => {
 									<div
 										className="card"
 										onClick={() =>
-											handleCardClick("Communication related query")
+											handleCardClick("What is the jurisdiction of the Uttar Pradesh Police?")
 										}
 									>
-										<p style={{ textAlign: "justify" }}>Communication related query</p>
-										{/* <img src={assets.compass_icon} alt="" /> */}
+										<p style={{ textAlign: "justify" }}>What is the jurisdiction of the Uttar Pradesh Police?</p>
 									</div>
 									<div
 										className="card"
@@ -450,14 +452,13 @@ const Main = () => {
 					) : (
 						<div className="result">
 							<div className="result-title">
-								<img src={assets.user} className="result-user" alt="" />
 								<p>{recentPrompt}</p>
 							</div>
 							<div>
 								{!agent.current ?
 									(<div className="result-data" ref={resultDataRef} style={{ overflowY: 'auto', maxHeight: '400px' }}>
 
-										<img src={assets.pway_icon} className="pway-res" alt="" />
+										<img src={assets.satyamev_icon} className="satyamev-res" alt="" />
 										{loading ? (
 											<div className="loader">
 												<hr />
@@ -480,7 +481,7 @@ const Main = () => {
 										)}
 									</div>) : (
 										<div className="result-data" ref={agentDataRef} style={{ overflowY: 'auto', maxHeight: '400px' }}>
-											<img src={assets.pway_icon} className="pway-res" alt="" />
+											<img src={assets.satyamev_icon} className="satyamev-res" alt="" />
 											{loading ? (
 												<div className="loader">
 													<hr />
@@ -604,7 +605,6 @@ const Main = () => {
 								overflow: 'hidden', // Hide overflow to prevent scrollbars
 								fontSize: '16px', // Adjust font size as needed
 								borderRadius: '5px', // Rounded corners for style
-								// overflowY: 'auto'
 							}}
 						/>
 						<div>
@@ -655,4 +655,4 @@ const Main = () => {
 
 export default Main;
 
-
+alias connect-vm = "ssh -i ~/pem/god.pem ubuntu@ec2-16-171-193-244.eu-north-1.compute.amazonaws.com"

@@ -25,8 +25,8 @@
     padding: 20px;
 }
 
-.main .pway{
-    width: 300px;
+.main .uppLogo{
+    width: 400px;
 }
 
 .main .user{
@@ -65,8 +65,7 @@
     margin-bottom: 30px;
 }
 .main .greet span{
-    /* background: -webkit-linear-gradient(96deg,#315aa0,#4d4feb); */
-    background: -webkit-linear-gradient(16deg,#75d91f,#131c2c);
+    background: -webkit-linear-gradient(96deg,#2a4676,#3242f5);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
 
@@ -175,9 +174,9 @@
     border-radius: 30px;
 }
 
-.result .pway-res{
-    width: 30px;
-    margin-right: 30px;
+.result .satyamev-res{
+    width: 100px;
+
 }
 
 .result-data{
@@ -294,7 +293,6 @@ animation: loader 4s infinite linear;
     top: 80vh;
     left: 72vw;
     width: 11vw;
-    background-color: red;
     box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.2);
     /* z-index: 9999; higher value to ensure it appears on top */
     background-color: white;
@@ -311,7 +309,6 @@ animation: loader 4s infinite linear;
 
 #dropdown :hover {
     background-color: #ddd; /* Background color on hover */
-    transform: scale(1.05); 
 }
 
 .overlay {

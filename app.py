@@ -3,11 +3,10 @@ from flask_cors import CORS
 from convert import convert_to_html
 import os
 import json
+from Chatbot import chatbot
+
 app = Flask(__name__)
 CORS(app)  
-
-# with open('companies.json', 'w') as file:
-#     json.dump([], file)
 
 @app.route('/query', methods=['POST'])
 def handle_query():
@@ -16,9 +15,9 @@ def handle_query():
     query = data.get('query', '')
 
     # Log or process the received query
-    print(f"Received query: {query}")
-    return '',204
-
+    response = chatbot(query)
+    print(response)
+    return response,200
 
 @app.route('/convert', methods=['POST'])
 def convert_to_pdf():

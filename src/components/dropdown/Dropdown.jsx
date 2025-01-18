@@ -13,8 +13,8 @@ const Dropdown = () => {
 
     <div style={styles.container}>
       <select value={selectedOption} onChange={handleChange} style={styles.dropdown}>
-        <option style = {styles.opt} value="option1">GPT 4-o</option>
-        <option style = {styles.opt} value="option2">GPT 4-o mini</option>
+        <option style = {styles.opt} value="english">English</option>
+        <option style = {styles.opt} value="hindi">Hindi</option>
       </select>
     </div>
   );

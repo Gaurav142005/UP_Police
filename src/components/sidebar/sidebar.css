@@ -48,15 +48,14 @@
     animation: openn 0.5s ease-in-out;
     width: 200px;
     font-family: 'Montserrat', sans-serif;
-    color: #75d91f;
-    background: -webkit-linear-gradient(96deg,#131c2c,#292a28);
+    color: white;
+    background: -webkit-linear-gradient(96deg,#131c2c,#2427a0);
 }
 
 .sidebar.collapsed{
     animation: close 0.5s ease-in-out;
     width: 120px;
-    background: -webkit-linear-gradient(96deg,#131c2c,#292a28);
-    /* background-color: white; */
+    background: -webkit-linear-gradient(96deg,#131c2c,#2427a0);
 }
 
 .buttons{
@@ -98,7 +97,7 @@
 .sidebar .recent-title{
     margin-top: 30px;
     margin-bottom: 20px;
-    color: #75d91f;
+    color: whitesmoke;
 }
 .sidebar .recent-entry{
     display: flex;
@@ -110,12 +109,12 @@
 }
 
 .sidebar.extended .recent-entry{
-    color: #75d91f;
+    color: whitesmoke;
 }
 
 .sidebar.extended .recent-entry:hover{
-    background-color: #75d91f;
-    color: #75d91f;
+    background-color: rgb(42, 42, 218);
+    color: whitesmoke;
 }
 
 .sidebar .bottom{
