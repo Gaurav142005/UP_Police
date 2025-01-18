@@ -126,38 +126,51 @@ const ContextProvider = (props) => {
 
 	// Function to render a pre-existing response
 	const onRender = async (data) => {
+		console.log('Rendering data:', data);
+		console.log("Result data:", resultData);
 		setResultData("");
 		let response = data;
 		try {
+			// Split the response by '**' for bold formatting
 			let responseArray = response.split("**");
 			let newResponse = "";
+			
+			// Loop through the split parts and format the bold text
 			for (let i = 0; i < responseArray.length; i++) {
 				if (i === 0 || i % 2 !== 1) {
 					newResponse += responseArray[i];
 				} else {
-					newResponse += "<b>" + responseArray[i] + "</b>";
+					newResponse += "<b>" + responseArray[i] + "</b>"; // Apply bold to every second part
 				}
 			}
+	
+			// Replace '*' with <br/> for line breaks
 			let newResponse2 = newResponse.split("*").join("<br/>");
-			totalCharsRef.current = newResponse2.length; // Set the total chars to be displayed
+	
+			// Set the total length of the string for rendering
+			totalCharsRef.current = newResponse2.length;
+	
+			// Split the final string into an array of characters
 			let newResponseArray = newResponse2.split("");
-			for (let i = 0; i < newResponseArray.length; i++) {
-				const nextWord = newResponseArray[i];
-				delayPara(i, nextWord + "");
-				
-			}
-
-			
+	
+			// Render each character with a delay
 			setTotalDisplayedCharsRef(0);
 			displayedCharsRef.current = 0;
+	
+			// Function to render each character one by one with delay
+			for (let i = 0; i < newResponseArray.length; i++) {
+				const nextChar = newResponseArray[i];
+				delayPara(i, nextChar); // Delay function that will render each character
+			}
 		} catch (error) {
 			console.error("Error while running chat:", error);
 		} finally {
-			// Check if all characters have been displayed
+			// Set loading state to false when done rendering
 			setLoading(false);
 			setInput("");
 		}
 	};
+	
 
 	const onRenderAgent = async (data) => {
 		try {

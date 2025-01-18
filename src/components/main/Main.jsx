@@ -11,7 +11,6 @@ import remarkGfm from "remark-gfm";
 
 const Main = () => {
 	const {
-		onSent,
 		onRender,
 		newChat,
 		recentPrompt,
@@ -47,7 +46,6 @@ const Main = () => {
 		setIsUpload,
 
 	} = useContext(Context);
-	const [socket1, setSocket1] = useState(null);
 
 	const resultDataRef = useRef(null); // Reference to the result-data container for auto scrolling
 	const agentDataRef = useRef(null);
@@ -89,10 +87,6 @@ const Main = () => {
 		);
 	};
 
-	const handleMarkdownChange = (e) => {
-		setMarkdownContent(e.target.value);
-	};
-
 	const textAreaRef = useRef(null);
 
 	const generatePDF = () => {
@@ -127,20 +121,19 @@ const Main = () => {
 			.then(htmlContent => {
 				// Open the HTML content in a new tab
 				const newTab = window.open();
-				if(newTab){
+				if (newTab) {
 					newTab.document.open();
 					newTab.document.write(htmlContent);
 					newTab.document.close();
-				}else{
+				} else {
 					console.error('Failed to open a new Tab')
 				}
-				
+
 			})
 			.catch(error => {
 				console.error('Error during the process:', error);
 			});
 	};
-
 
 	// Auto-scrolling effect when resultData changes
 	useEffect(() => {
@@ -173,23 +166,30 @@ const Main = () => {
 
 		let query = input;
 		console.log(query);
-		if (socket && socket.readyState === WebSocket.OPEN) {
-			socket.send(JSON.stringify({ type: 'query', query }));
-		}
+		// if (socket && socket.readyState === WebSocket.OPEN) {
+		// 	socket.send(JSON.stringify({ type: 'query', query }));
+		// }
 		try {
-			fetch('http://127.0.0.1:5001/query', {
+			fetch('http://127.0.0.1:8080/query', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
 				},
 				body: JSON.stringify({ query: input }), // Send input to the Flask backend
-			}).then((res) =>
-				res.json().then((data) => {
-					setResultData(data);
-				})
-			);
-
-			console.log(resultData);
+			}).then((response) => {
+				if (!response.ok) {
+					throw new Error('Failed to send query to backend');
+				}
+				return response.json(); // Expecting a JSON response
+			}
+			).then((data) => {
+				console.log('Query sent successfully:', data);
+				setResultData(data.message);
+				onRender(data.message);
+				setLoading(false);
+				console.log(resultData);
+			}
+			)
 		} catch (error) {
 			console.error('Error sending query to backend:', error);
 			setLoading(false);
@@ -266,19 +266,18 @@ const Main = () => {
 	}
 
 	const triggerFileInput = () => {
-
 		document.getElementById('hiddenFileInput').click(); // Programmatically trigger click on hidden input
 	};
 
 	// Toggle the dropdown visibility
 	const toggleDropdown = () => {
 		setIsDropdownOpen(!isDropdownOpen);
-	  };
-	
-	  // Close the dropdown
-	  const closeDropdown = () => {
+	};
+
+	// Close the dropdown
+	const closeDropdown = () => {
 		setIsDropdownOpen(false);
-	  };
+	};
 
 	// Close the dropdown if the user clicks outside of it
 	window.onclick = function (event) {
@@ -291,88 +290,7 @@ const Main = () => {
 		}
 	};
 
-	useEffect(() => {
-
-		try {
-			const ws = new WebSocket('ws://4.188.110.145:8090');
-
-			ws.onopen = () => {
-				console.log('WebSocket connected to agent server');
-
-			};
-			ws.onmessage = (event) => {
-				try {
-					const data = JSON.parse(event.data);
-
-					if (data.type === 'agents') {
-
-						console.log("agents data", data);
-						if (agent.current === true) {
-							onRenderAgent(data.response);
-							setPrevResults(prev => [...prev, data.response]);
-							setRecentPrompt(prevPrompts)
-							console.log(data.response);
-							setMarkdownContent(data.response);
-						}
-					}
-				} catch (error) {
-					console.error('Error parsing WebSocket message:', error);
-				}
-			};
-			ws.onclose = () => {
-				console.log('WebSocket disconnected');
-			};
-			setSocket1(ws);
-			return () => {
-				ws.close();
-			};
-		}
-		catch (error) {
-			console.error('Verbose WebSocket Server Not Connected', error);
-		}
-	}, []);
-
-	useEffect(() => {
-		const ws = new WebSocket('ws://4.188.110.145:8080');
-		try {
-			ws.onopen = () => {
-				console.log('WebSocket connected');
-			};
-			ws.onmessage = (event) => {
-				try {
-					const data = JSON.parse(event.data);
-					if (data.type === 'graph') {
-
-						const graph = JSON.parse(data.response);
-						console.log(graph);
-						setGraphData(graph);
-
-					} else if (data.type === 'response') {
-						agent.current = false;
-						onRender(data.response);
-						console.log(data.response);
-						setMarkdownContent(data.response);
-					}
-					else if (data.type === 'questions') {
-						console.log(data.response);
-						setReccQs(data.response);
-					}
-				} catch (error) {
-					console.error('Error parsing WebSocket message:', error);
-				}
-			};
-			ws.onclose = () => {
-				console.log('WebSocket disconnected');
-			};
-			setSocket(ws);
-			return () => {
-				ws.close();
-			};
-		}
-		catch (error) {
-			console.error('Main WebSocket Server Not Connected', error);
-		}
-	}, []);
+	console.log("Rendering resultData:", resultData)
 
 	return (
 
@@ -383,7 +301,7 @@ const Main = () => {
 			}
 		}}>
 			<div className="nav">
-				
+
 				<img src={assets.UPpolice_logo} className="uppLogo" alt="" />
 				<div className="rightside">
 					<Dropdown />
@@ -433,8 +351,7 @@ const Main = () => {
 										}
 									>
 										<p style={{ textAlign: "justify" }}>
-										Communication related query</p>
-										{/* <img src={assets.message_icon} alt="" /> */}
+											Communication related query</p>
 									</div>
 									<div
 										className="card"
@@ -444,7 +361,6 @@ const Main = () => {
 									>
 										<p style={{ textAlign: "justify" }}>Communication related query</p>
 									</div>
-									{/* Your card elements here */}
 								</div>
 							</div>
 
@@ -455,58 +371,26 @@ const Main = () => {
 								<p>{recentPrompt}</p>
 							</div>
 							<div>
-								{!agent.current ?
-									(<div className="result-data" ref={resultDataRef} style={{ overflowY: 'auto', maxHeight: '400px' }}>
-
+								{!loading && (
+									<div className="result-data" ref={resultDataRef} style={{ overflowY: 'auto', maxHeight: '400px' }}>
 										<img src={assets.satyamev_icon} className="satyamev-res" alt="" />
-										{loading ? (
-											<div className="loader">
-												<hr />
-												<hr />
-												<hr />
-											</div>
-										) : (
-											<div className="markdown-content" >
-												<ReactMarkdown
-													rehypePlugins={[rehypeRaw]}
-													remarkPlugins={[remarkGfm]}
-													components={{
-														a: ({ href, children }) => (
-															<a href={href} target="_blank" rel="noopener noreferrer">
-																{children}
-															</a>
-														)
-													}}>{resultData}</ReactMarkdown>
-											</div>
-										)}
-									</div>) : (
-										<div className="result-data" ref={agentDataRef} style={{ overflowY: 'auto', maxHeight: '400px' }}>
-											<img src={assets.satyamev_icon} className="satyamev-res" alt="" />
-											{loading ? (
-												<div className="loader">
-													<hr />
-													<hr />
-													<hr />
-												</div>
-											) : (
-
-
-												<div className="markdown-content" style={{ color: 'grey' }}>
-													<ReactMarkdown
-														rehypePlugins={[rehypeRaw]}
-														remarkPlugins={[remarkGfm]}
-														components={{
-															a: ({ href, children }) => (
-																<a href={href} target="_blank" rel="noopener noreferrer">
-																	{children}
-																</a>
-															)
-														}}>{agentData}</ReactMarkdown>
-												</div>
-
-											)}
+										<div className="markdown-content">
+											<ReactMarkdown
+												rehypePlugins={[rehypeRaw]}
+												remarkPlugins={[remarkGfm]}
+												components={{
+													a: ({ href, children }) => (
+														<a href={href} target="_blank" rel="noopener noreferrer">
+															{children}
+														</a>
+													)
+												}}
+											>
+												{resultData}
+											</ReactMarkdown>
 										</div>
-									)}
+									</div>
+								)}
 								{downloadData &&
 									<div className="result-data" ref={agentDataRef} style={{ overflow: 'auto' }}>
 										<img src={assets.download_icon} onClick={generatePDF} style={{ width: '20px', marginTop: '1vh', marginLeft: '7vh' }} />
@@ -554,7 +438,7 @@ const Main = () => {
 											}}
 											onClick={() => handleCardClick(reccQs[1])}
 										>
-											<p style={{ textAlign: "left", fontSize: '15px',	 margin: '0px 6px', padding: '2px' }}>{reccQs[1]}</p>
+											<p style={{ textAlign: "left", fontSize: '15px', margin: '0px 6px', padding: '2px' }}>{reccQs[1]}</p>
 										</div>
 									}
 
@@ -654,5 +538,3 @@ const Main = () => {
 };
 
 export default Main;
-
-alias connect-vm = "ssh -i ~/pem/god.pem ubuntu@ec2-16-171-193-244.eu-north-1.compute.amazonaws.com"

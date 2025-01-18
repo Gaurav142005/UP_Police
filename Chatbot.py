@@ -292,4 +292,4 @@ def chatbot(query: str):
         pprint.pprint("\n---\n")
 
 
-print(chatbot("What is the criteria for membership into the Anti Narcotics Task Forec?"))
+# print(chatbot("What is the criteria for membership into the Anti Narcotics Task Forec?"))
