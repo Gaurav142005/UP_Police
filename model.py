@@ -162,7 +162,7 @@ class Chatbot:
                 return {key: make_serializable(value) for key, value in obj._dict_.items()}
             return str(obj)  # Fallback for other non-serializable objects
 
-        def clean_text_and_extract_links(text: str) -> (str, list):
+        def clean_text_and_extract_links(text: str) -> (str, list): # type: ignore
             """Cleans text, removes placeholders like 'Source 1' and extracts unique drive links."""
             # Extract drive links
             drive_links = re.findall(r"https://drive\.google\.com/file/d/[a-zA-Z0-9_-]+/view", text)
