@@ -1,37 +1,34 @@
-import React, { useState } from "react";
+import React, { useContext } from "react";
+import { Context } from "../../context/Context";
 
 const Dropdown = () => {
-  // State to store selected value
-  const [selectedOption, setSelectedOption] = useState("");
+    const {
+      language,
+      setLanguage
+  
+    } = useContext(Context);
 
   // Handle dropdown change
   const handleChange = (event) => {
-    setSelectedOption(event.target.value);
+    setLanguage(event.target.value);
   };
 
   return (
-
     <div style={styles.container}>
-      <select value={selectedOption} onChange={handleChange} style={styles.dropdown}>
-        <option style = {styles.opt} value="english">English</option>
-        <option style = {styles.opt} value="hindi">Hindi</option>
+      <select value={language} onChange={handleChange} style={styles.dropdown}>
+        <option value="english">English</option>
+        <option value="hindi">Hindi</option>
       </select>
     </div>
   );
 };
 
-// Inline styles for simplicity
+// Inline styles
 const styles = {
   container: {
     textAlign: "center",
     margin: "10px",
-    // backgroundColor: "#f9f9f9",
     maxWidth: "1200px",
-  },
-
-  header: {
-    fontSize: "18px",
-    marginBottom: "10px",
   },
   dropdown: {
     padding: "10px",
@@ -41,7 +38,6 @@ const styles = {
     border: "1px solid #ddd",
     outline: "none",
   },
-
   result: {
     marginTop: "20px",
     fontSize: "16px",

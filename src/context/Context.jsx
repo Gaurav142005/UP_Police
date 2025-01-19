@@ -24,6 +24,7 @@ const ContextProvider = (props) => {
 	const [totalDisplayedCharsRef, setTotalDisplayedCharsRef] = useState(0); // State to track total displayed chars
 	const [prevResults, setPrevResults] = useState([]);
 	const pendingDataRef = useRef([]);
+	const [language, setLanguage] = useState("english");
 	const resp = useRef(false);
 
 	// Helper function to update displayed characters and check if all have been shown
@@ -237,6 +238,8 @@ const ContextProvider = (props) => {
 		resp,
 		isUpload,
 		setIsUpload,
+		language,
+		setLanguage,
 		totalDisplayedCharsRef,
 		setTotalDisplayedCharsRef
 	};

@@ -44,6 +44,8 @@ const Main = () => {
 		resp,
 		isUpload,
 		setIsUpload,
+		language,
+		setLanguage
 
 	} = useContext(Context);
 
@@ -91,7 +93,7 @@ const Main = () => {
 
 	const generatePDF = () => {
 		// Send the raw Markdown content to the backend
-		fetch('http://127.0.0.1:5001/convert', {
+		fetch('http://127.0.0.1:8080/convert', {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
@@ -166,34 +168,45 @@ const Main = () => {
 
 		let query = input;
 		console.log(query);
-		// if (socket && socket.readyState === WebSocket.OPEN) {
-		// 	socket.send(JSON.stringify({ type: 'query', query }));
-		// }
+
 		try {
 			fetch('http://127.0.0.1:8080/query', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
 				},
-				body: JSON.stringify({ query: input }), // Send input to the Flask backend
-			}).then((response) => {
-				if (!response.ok) {
-					throw new Error('Failed to send query to backend');
-				}
-				return response.json(); // Expecting a JSON response
-			}
-			).then((data) => {
-				console.log('Query sent successfully:', data);
-				setResultData(data.message);
-				onRender(data.message);
-				setLoading(false);
-				console.log(resultData);
-			}
-			)
+				body: JSON.stringify({ query: input, lang: language }), // Send input to the Flask backend
+			})
+				.then((response) => {
+					if (!response.ok) {
+						throw new Error('Failed to send query to backend');
+					}
+					return response.json(); // Expecting a JSON response
+				})
+				.then((data) => {
+					console.log('Query sent successfully:', data);
+
+					// Extract response and sources separately
+					const responseText = data.response; // Processed chatbot response
+					const sources = data.sources || []; // List of sources
+
+					// Render the response first
+					setResultData(responseText);
+					onRender(responseText);
+
+					// After rendering the response, handle sources
+					setTimeout(() => {
+						console.log("Sources:", sources);
+						setResultData(prev => prev + "\n\nSources:\n" + sources.join("\n")); // Append sources after a delay
+					}, 500); // 500ms delay to ensure response renders first
+
+					setLoading(false);
+				});
 		} catch (error) {
-			console.error('Error sending query to backend:', error);
+			console.error('Error:', error);
 			setLoading(false);
 		}
+
 	}
 
 	// Adjust textarea height dynamically
@@ -236,7 +249,7 @@ const Main = () => {
 						timestamp: new Date().toLocaleString(),
 					},
 				]);
-				
+
 				try {
 					// Send a POST request
 					const response = await fetch('http://127.0.0.1:8080/upload', {
@@ -274,11 +287,6 @@ const Main = () => {
 		setIsDropdownOpen(!isDropdownOpen);
 	};
 
-	// Close the dropdown
-	const closeDropdown = () => {
-		setIsDropdownOpen(false);
-	};
-
 	// Close the dropdown if the user clicks outside of it
 	window.onclick = function (event) {
 		const dropdown = document.getElementById("dropdown");
@@ -289,8 +297,6 @@ const Main = () => {
 			dropdown.style.display = "none";
 		}
 	};
-
-	console.log("Rendering resultData:", resultData)
 
 	return (
 
@@ -371,24 +377,25 @@ const Main = () => {
 								<p>{recentPrompt}</p>
 							</div>
 							<div>
-								{!loading && (
-									<div className="result-data" ref={resultDataRef} style={{ overflowY: 'auto', maxHeight: '400px' }}>
-										<img src={assets.satyamev_icon} className="satyamev-res" alt="" />
-										<div className="markdown-content">
-											<ReactMarkdown
-												rehypePlugins={[rehypeRaw]}
-												remarkPlugins={[remarkGfm]}
-												components={{
-													a: ({ href, children }) => (
-														<a href={href} target="_blank" rel="noopener noreferrer">
-															{children}
-														</a>
-													)
-												}}
-											>
-												{resultData}
-											</ReactMarkdown>
-										</div>
+								<img src={assets.satyamev_icon} className="satyamev-res" alt="" />
+								{loading ? (
+									<div className="loader">
+										<hr />
+										<hr />
+										<hr />
+									</div>
+								) : (
+									<div className="markdown-content">
+										<ReactMarkdown
+											rehypePlugins={[rehypeRaw]}
+											remarkPlugins={[remarkGfm]}
+											components={{
+												a: ({ href, children }) => (
+													<a href={href} target="_blank" rel="noopener noreferrer">
+														{children}
+													</a>
+												)
+											}}>{resultData}</ReactMarkdown>
 									</div>
 								)}
 								{downloadData &&
@@ -433,7 +440,6 @@ const Main = () => {
 												justifyContent: 'center',
 												alignItems: 'center',
 												overflow: 'hidden',  // Hide overflow if text exceeds the card's boundaries
-												//wordWrap: 'break-word',  // Break long words if needed to fit inside the card
 												textOverflow: 'ellipsis',  // Show ellipsis if the text is too long
 											}}
 											onClick={() => handleCardClick(reccQs[1])}
@@ -492,7 +498,28 @@ const Main = () => {
 							}}
 						/>
 						<div>
-							<img src={assets.attach_icon} className="upload" onClick={!resp.current ? toggleDropdown : null} />
+							<div>
+								<button onClick={triggerFileInput}></button>
+								<input
+									multiple
+									id="hiddenFileInput"
+									type="file"
+									style={{ display: "none" }}
+									onChange={handleFileChange}
+								/>
+							</div>
+							<div>
+								<button onClick={triggerFileInput} style={{ background: 'none', border: 'none' }}>
+									<img src={assets.attach_icon} className="upload"/>
+									<input
+										multiple
+										id="hiddenFileInput"
+										type="file"
+										style={{ display: "none" }}
+										onChange={handleFileChange}
+									/>
+								</button>
+							</div>
 							<img
 								src={assets.send_icon}
 								alt=""
@@ -504,34 +531,6 @@ const Main = () => {
 						<p></p>
 					</div>
 				</div>
-				{/* Overlay and Dropdown */}
-				{isDropdownOpen && (
-					<>
-						{/* Overlay */}
-						<div className="overlay" onClick={closeDropdown}></div>
-
-						{/* Dropdown Content */}
-						<div id="dropdown" className="dropdown-content">
-							<div>
-								<button onClick={triggerFileInput}>Upload from Computer</button>
-								<input
-									multiple
-									id="hiddenFileInput"
-									type="file"
-									style={{ display: "none" }}
-									onChange={handleFileChange}
-								/>
-							</div>
-							<a
-								href="https://drive.google.com/drive/folders/1bmB1oKZ3J8_Onbd-pQKbhiBDLi8AGls9"
-								target="_blank"
-								rel="noopener noreferrer"
-							>
-								<button onClick={closeDropdown}>Upload to Google Drive</button>
-							</a>
-						</div>
-					</>
-				)}
 			</div>
 		</div>
 	);

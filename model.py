@@ -1,6 +1,6 @@
 import os
+import re
 import json
-import pprint
 from dotenv import load_dotenv
 from typing import Annotated, Literal, Sequence, TypedDict
 from langchain_community.document_loaders import TextLoader
@@ -52,7 +52,6 @@ class Chatbot:
         for i in d:
             i.metadata['source'] = i.metadata['source'].split('/')[-1]
             for key, value in drive_link_dictionary.items():
-                # print(i.metadata['source'], key)
                 if i.metadata['source'][:-4] == key[:-4]:
                     i.metadata['source'] = value
                     break
@@ -167,4 +166,21 @@ class Chatbot:
                 results[key] = value
 
         serializable_results = make_serializable(results)
-        print(json.dumps(serializable_results, indent=2))
+        # Convert to JSON object
+        parsed_json = json.loads(json.dumps(serializable_results, indent=2))
+
+        # Extract sources from "retrieve.messages" content
+        sources = []
+        if "retrieve" in parsed_json and "messages" in parsed_json["retrieve"]:
+            for msg in parsed_json["retrieve"]["messages"]:
+                content = msg.get("content", "")
+                found_sources = re.findall(r"https://drive\.google\.com/file/d/[a-zA-Z0-9_-]+/view", content)
+                sources.extend(found_sources)
+
+        return {"response": parsed_json, "sources": sources}
+    
+if __name__ == "__main__":
+    bot = Chatbot()
+    query = "What is the procedure to file an FIR?"
+    response = bot.chatbot(query)
+    print(response)
