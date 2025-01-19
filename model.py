@@ -18,6 +18,7 @@ from langgraph.prebuilt import tools_condition
 from langgraph.graph import END, StateGraph, START
 from langgraph.prebuilt import ToolNode
 from langchain_core.tools import tool
+from langchain_voyageai import VoyageAIEmbeddings
 
 load_dotenv()
 
@@ -25,9 +26,11 @@ pinecone_api_key = os.environ.get("PINECONE_API_KEY")
 pc = Pinecone(api_key=pinecone_api_key)
 index_name = "bcs-up-police"
 index = pc.Index(index_name)
-embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
+embeddings = VoyageAIEmbeddings(
+    voyage_api_key=os.environ.get('VOYAGE_API_KEY'), model="voyage-3-large"
+)
 docsearch = PineconeVectorStore(index=index, embedding=embeddings)
-
+print(os.environ.get('GROQ_API_KEY'))
 with open('drive_link_dictionary.json') as f:
     drive_link_dictionary = json.load(f)
 
@@ -147,7 +150,7 @@ class Chatbot:
         workflow.add_edge("rewrite", "agent")
         return workflow.compile()
 
-    def chatbot(self, query: str):
+    def chatbot(self, query: str) -> str:
         def make_serializable(obj):
             if isinstance(obj, (AIMessage, HumanMessage)):
                 return obj.content
@@ -155,9 +158,29 @@ class Chatbot:
                 return {key: make_serializable(value) for key, value in obj.items()}
             elif isinstance(obj, list):
                 return [make_serializable(item) for item in obj]
-            elif hasattr(obj, '__dict__'):  # Handle custom objects like ToolMessage
-                return {key: make_serializable(value) for key, value in obj.__dict__.items()}
+            elif hasattr(obj, '_dict_'):  # Handle custom objects like ToolMessage
+                return {key: make_serializable(value) for key, value in obj._dict_.items()}
             return str(obj)  # Fallback for other non-serializable objects
+
+        def clean_text_and_extract_links(text: str) -> (str, list): # type: ignore
+            """Cleans text, removes placeholders like 'Source 1' and extracts unique drive links."""
+            # Extract drive links
+            drive_links = re.findall(r"https://drive\.google\.com/file/d/[a-zA-Z0-9_-]+/view", text)
+            unique_links = list(set(drive_links))  # Remove duplicates
+
+            # Remove placeholders like 'Source 1:', 'Source 2:' etc., and drive links from text
+            cleaned_text = re.sub(r"Source \d+:.*\n?", "", text)
+            
+            # Remove links from text body
+            cleaned_text = re.sub(r"https://drive\.google\.com/file/d/[a-zA-Z0-9_-]+/view", "", cleaned_text)
+            
+            # Replace multiple newlines with a single newline
+            cleaned_text = re.sub(r'\n+', '\n', cleaned_text)
+            
+            # Strip leading and trailing whitespace
+            cleaned_text = cleaned_text.strip()
+
+            return cleaned_text, unique_links
 
         inputs = {"messages": [("user", query)]}
         results = {}
@@ -169,18 +192,16 @@ class Chatbot:
         # Convert to JSON object
         parsed_json = json.loads(json.dumps(serializable_results, indent=2))
 
-        # Extract sources from "retrieve.messages" content
-        sources = []
-        if "retrieve" in parsed_json and "messages" in parsed_json["retrieve"]:
-            for msg in parsed_json["retrieve"]["messages"]:
-                content = msg.get("content", "")
-                found_sources = re.findall(r"https://drive\.google\.com/file/d/[a-zA-Z0-9_-]+/view", content)
-                sources.extend(found_sources)
+        # Extract the final response from the "generate" node
+        final_response = ""
+        if "generate" in parsed_json and "messages" in parsed_json["generate"]:
+            final_response = parsed_json["generate"]["messages"][0]
 
-        return {"response": parsed_json, "sources": sources}
-    
-if __name__ == "__main__":
-    bot = Chatbot()
-    query = "What is the procedure to file an FIR?"
-    response = bot.chatbot(query)
-    print(response)
+        # Clean the text and extract unique drive links
+        final_response, unique_links = clean_text_and_extract_links(final_response)
+
+        # Append unique links at the end of the response as relevant sources
+        if unique_links:
+            final_response += "\n\nRelevant Sources:\n" + "\n".join(unique_links)
+
+        return final_response

@@ -6,10 +6,12 @@ load_dotenv()
 API_SUBSCRIPTION_KEY = os.environ.get("SARVAM_API_KEY")
 TRANSLATE_API_URL = "https://api.sarvam.ai/translate"
 
-def translate_text(text: str, target_language_code: str, source_language_code: str) -> str:
+def translate_text(target_language_code: str, source_language_code: str, text: str) -> str:
     """
     Translate text from the source language to the target language using the translation API.
     """
+    if(text == ''):
+        text = "Hello Uttar Pradesh! How may I help you today"
     payload = {
         "input": text,
         "target_language_code": target_language_code,
@@ -27,7 +29,3 @@ def translate_text(text: str, target_language_code: str, source_language_code: s
         return response.json().get('translated_text', '')
     else:
         raise Exception(f"Translation failed: {response.text}")
-
-# Example usage
-translated_text = translate_text("Hello, world!", "hi-IN", "en-IN")
-print(translated_text)

@@ -89,6 +89,10 @@ const Main = () => {
 		);
 	};
 
+	const handleMarkdownChange = (e) => {
+		setMarkdownContent(e.target.value);
+	};
+
 	const textAreaRef = useRef(null);
 
 	const generatePDF = () => {
@@ -99,8 +103,7 @@ const Main = () => {
 				'Content-Type': 'application/json',
 			},
 			body: JSON.stringify({ content: markdownContent }),
-		})
-			.then(response => {
+		}).then(response => {
 				if (!response.ok) {
 					throw new Error('Failed to send data to the backend');
 				}
@@ -110,7 +113,7 @@ const Main = () => {
 				console.log('Markdown content sent successfully to backend:', data.message);
 
 				// Now fetch the generated HTML from the backend after it's processed
-				return fetch('http://127.0.0.1:5001/download-pdf', {
+				return fetch('http://127.0.0.1:8080/download-pdf', {
 					method: 'GET',
 				});
 			})
@@ -184,24 +187,14 @@ const Main = () => {
 					return response.json(); // Expecting a JSON response
 				})
 				.then((data) => {
-					console.log('Query sent successfully:', data);
+					console.log('Query sent successfully:', data.message);
 
-					// Extract response and sources separately
-					const responseText = data.response; // Processed chatbot response
-					const sources = data.sources || []; // List of sources
-
-					// Render the response first
-					setResultData(responseText);
-					onRender(responseText);
-
-					// After rendering the response, handle sources
-					setTimeout(() => {
-						console.log("Sources:", sources);
-						setResultData(prev => prev + "\n\nSources:\n" + sources.join("\n")); // Append sources after a delay
-					}, 500); // 500ms delay to ensure response renders first
-
+					// Directly render the string data
+					setResultData(data.message);
+					onRender(data.message);
 					setLoading(false);
 				});
+
 		} catch (error) {
 			console.error('Error:', error);
 			setLoading(false);
@@ -374,10 +367,10 @@ const Main = () => {
 					) : (
 						<div className="result">
 							<div className="result-title">
-								<p>{recentPrompt}</p>
+								<img src={assets.satyamev_icon} className="satyamev-res" alt="" />
+								<h2>{recentPrompt}</h2>
 							</div>
 							<div>
-								<img src={assets.satyamev_icon} className="satyamev-res" alt="" />
 								{loading ? (
 									<div className="loader">
 										<hr />
@@ -459,7 +452,6 @@ const Main = () => {
 												justifyContent: 'center',
 												alignItems: 'center',
 												overflow: 'hidden',  // Hide overflow if text exceeds the card's boundaries
-												// wordWrap: 'break-word',  // Break long words if needed to fit inside the card
 												textOverflow: 'ellipsis',  // Show ellipsis if the text is too long
 											}}
 											onClick={() => handleCardClick(reccQs[2])}
@@ -510,7 +502,7 @@ const Main = () => {
 							</div>
 							<div>
 								<button onClick={triggerFileInput} style={{ background: 'none', border: 'none' }}>
-									<img src={assets.attach_icon} className="upload"/>
+									<img src={assets.attach_icon} className="upload" />
 									<input
 										multiple
 										id="hiddenFileInput"

@@ -23,12 +23,12 @@ def handle_query():
     print(query)
     lang = data.get('lang', '')
     print(lang)
-    response = "hi my name is Gaurav"
+    response = bot.chatbot(query)   
     if(lang == 'hindi'):
-        response = translate_text(response, "hi-IN", "en-IN")
+        response = translate_text("hi-IN", "en-IN", response)
     print(response)
     # Log or process the received query
-    return response,200
+    return {"message": response},200
 
 @app.route('/convert', methods=['POST'])
 def convert_to_pdf():
