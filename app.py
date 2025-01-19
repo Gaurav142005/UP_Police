@@ -1,8 +1,12 @@
-from flask import Flask, request, send_file
+from flask import Flask, request, send_file, jsonify
 from flask_cors import CORS
 from convert import convert_to_html
 import os
 import json
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload
+from werkzeug.utils import secure_filename
 from Chatbot import chatbot
 
 app = Flask(__name__)
@@ -47,5 +51,67 @@ def download_pdf():
 
     return send_file(output_file, as_attachment=True, download_name='pathway.html', mimetype='text/html')
 
+
+app = Flask(__name__)
+
+# Google Drive API settings
+SERVICE_ACCOUNT_FILE = "apikey.json"  # Replace with your service account file
+FOLDER_ID = "1dx3fQhtNuC_EOSVnV5Rio5zoogRKzkbf"  # Replace with your Google Drive folder ID
+
+# Authenticate using the service account
+def authenticate():
+    credentials = service_account.Credentials.from_service_account_file(
+        SERVICE_ACCOUNT_FILE, scopes=["https://www.googleapis.com/auth/drive"]
+    )
+    return build("drive", "v3", credentials=credentials)
+
+# Function to upload a file to Google Drive
+def upload_to_drive(file_path, file_name):
+    drive_service = authenticate()
+
+    file_metadata = {
+        "name": file_name,
+        "parents": [FOLDER_ID],  # Upload to the specified folder
+    }
+    
+    # Create a MediaFileUpload object for the file to be uploaded
+    media = MediaFileUpload(file_path, mimetype="application/pdf", resumable=True)
+
+    try:
+        upload_response = drive_service.files().create(
+            body=file_metadata, media_body=media, fields="id, webViewLink"
+        ).execute()
+
+        return upload_response
+
+    except Exception as e:
+        raise Exception(f"Error uploading file: {str(e)}")
+    
+@app.route("/upload", methods=["POST"])
+def upload_file():
+    if "file" not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
+
+    file = request.files["file"]
+
+    if file.filename == "":
+        return jsonify({"error": "No selected file"}), 400
+
+    # Secure filename and save temporarily
+    filename = secure_filename(file.filename)
+    temp_path = os.path.join("uploads", filename)
+    os.makedirs("uploads", exist_ok=True)
+    file.save(temp_path)
+
+    try:
+        # Upload to Google Drive
+        drive_response = upload_to_drive(temp_path, filename)
+        os.remove(temp_path)  # Remove file after upload
+        return jsonify({"file_id": drive_response["id"], "webViewLink": drive_response["webViewLink"]})
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 if __name__ == '__main__':
-    app.run(host='0.0.0.0',port=8080, debug=True)  # Run Flask server on port 5001
+    app.run(host='0.0.0.0',port=8080, debug=True)  # Run Flask server on port 8080

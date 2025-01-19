@@ -236,10 +236,10 @@ const Main = () => {
 						timestamp: new Date().toLocaleString(),
 					},
 				]);
-
+				
 				try {
 					// Send a POST request
-					const response = await fetch('http://4.188.110.145:8000/upload', {
+					const response = await fetch('http://127.0.0.1:8080/upload', {
 						method: 'POST',
 						body: formData,
 					});

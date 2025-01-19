@@ -1,295 +1,170 @@
-from langchain_community.document_loaders import TextLoader
 import os
-from pinecone import Pinecone, ServerlessSpec
-import time
-from langchain_pinecone import PineconeVectorStore
-from langchain.tools.retriever import create_retriever_tool
+import json
+import pprint
+from dotenv import load_dotenv
+from typing import Annotated, Literal, Sequence, TypedDict
+from langchain_community.document_loaders import TextLoader
+from pinecone import Pinecone
 from langchain_pinecone import PineconeVectorStore
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface.embeddings import HuggingFaceEmbeddings
-from dotenv import load_dotenv
 from langchain_groq import ChatGroq
-load_dotenv()
-from typing import Annotated, Sequence, TypedDict
-from langchain_core.messages import BaseMessage
-from langgraph.graph.message import add_messages
-from typing import Annotated, Literal, Sequence, TypedDict
-from langchain import hub
-from langchain_core.messages import BaseMessage, HumanMessage
+from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.prompts import PromptTemplate
+from langchain_core.prompts import PromptTemplate, ChatPromptTemplate
 from langchain_core.pydantic_v1 import BaseModel, Field
-from langchain_core.prompts import ChatPromptTemplate
+from langgraph.graph.message import add_messages
 from langgraph.prebuilt import tools_condition
 from langgraph.graph import END, StateGraph, START
 from langgraph.prebuilt import ToolNode
+from langchain_core.tools import tool
 
-# docs = [TextLoader('UP-Police-Project/corrected-english-circulars' + '/' +file ).load() for file in os.listdir('UP-Police-Project/corrected-english-circulars')]
-# docs_list = [item for sublist in docs for item in sublist]
-
-# text_splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
-#     chunk_size=400, chunk_overlap=200
-# )
-# doc_splits = text_splitter.split_documents(docs_list)
-
-
-embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
-
-# index_name = "bcs-up-police"
-
-# docsearch = PineconeVectorStore.from_documents(doc_splits, embeddings, index_name=index_name)
-
+load_dotenv()
 
 pinecone_api_key = os.environ.get("PINECONE_API_KEY")
-
 pc = Pinecone(api_key=pinecone_api_key)
-
-
-
-index_name = "bcs-up-police" 
+index_name = "bcs-up-police"
 index = pc.Index(index_name)
-
-
+embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
 docsearch = PineconeVectorStore(index=index, embedding=embeddings)
 
-llm = ChatGroq(
-    model="llama-3.3-70b-versatile",
-    temperature=0,
-    max_tokens=None,
-    timeout=None,
-    max_retries=2,
-)
+with open('drive_link_dictionary.json') as f:
+    drive_link_dictionary = json.load(f)
 
-retriever = docsearch.as_retriever()
-
-
-retriever_tool = create_retriever_tool(
-    retriever,
-    "retrieve relevant circulars of UP police",
-    "Search and return information about the user query from the circulars by UP Police.",
-)
-
-tools = [retriever_tool]
-
-
-class AgentState(TypedDict):
-    # The add_messages function defines how an update should be processed
-    # Default is to replace. add_messages says "append"
-    messages: Annotated[Sequence[BaseMessage], add_messages]
-
-### Edges
-
-
-def grade_documents(state) -> Literal["generate", "rewrite"]:
-    """
-    Determines whether the retrieved documents are relevant to the question.
-
-    Args:
-        state (messages): The current state
-
-    Returns:
-        str: A decision for whether the documents are relevant or not
-    """
-
-    print("---CHECK RELEVANCE---")
-
-    # Data model
-    class grade(BaseModel):
-        """Binary score for relevance check."""
-
-        binary_score: str = Field(description="Relevance score 'yes' or 'no'")
-
-    # LLM
-    model = llm
-
-    # LLM with tool and validation
-    llm_with_tool = model.with_structured_output(grade)
-
-    # Prompt
-    prompt = PromptTemplate(
-        template="""You are a grader assessing relevance of a retrieved document to a user question. \n 
-        Here is the retrieved document: \n\n {context} \n\n
-        Here is the user question: {question} \n
-        If the document contains keyword(s) or semantic meaning related to the user question, grade it as relevant. \n
-        Give a binary score 'yes' or 'no' score to indicate whether the document is relevant to the question.""",
-        input_variables=["context", "question"],
-    )
-
-    # Chain
-    chain = prompt | llm_with_tool
-
-    messages = state["messages"]
-    last_message = messages[-1]
-
-    question = messages[0].content
-    docs = last_message.content
-
-    scored_result = chain.invoke({"question": question, "context": docs})
-
-    score = scored_result.binary_score
-
-    if score == "yes":
-        print("---DECISION: DOCS RELEVANT---")
-        return "generate"
-
-    else:
-        print("---DECISION: DOCS NOT RELEVANT---")
-        print(score)
-        return "rewrite"
-
-
-### Nodes
-
-
-def agent(state):
-    """
-    Invokes the agent model to generate a response based on the current state. Given
-    the question, it will decide to retrieve using the retriever tool, or simply end.
-
-    Args:
-        state (messages): The current state
-
-    Returns:
-        dict: The updated state with the agent response appended to messages
-    """
-    print("---CALL AGENT---")
-    messages = state["messages"]
-    model = llm
-    model = model.bind_tools(tools)
-    response = model.invoke(messages)
-    # We return a list, because this will get added to the existing list
-    return {"messages": [response]}
-
-
-def rewrite(state):
-    """
-    Formulate an improved question and output the formulated quetion only
-
-
-    Args:
-        state (messages): The current state
-
-    Returns:
-        dict: The updated state with re-phrased question
-    """
-
-    print("---TRANSFORM QUERY---")
-    messages = state["messages"]
-    question = messages[0].content
-
-    msg = [
-        HumanMessage(
-            content=f""" \n 
-    Look at the input and try to reason about the underlying semantic intent / meaning. \n 
-    Here is the initial question:
-    \n ------- \n
-    {question} 
-    \n ------- \n
-    Formulate an improved question: """,
+class Chatbot:
+    def __init__(self):
+        self.llm = ChatGroq(
+            model="llama-3.3-70b-versatile",
+            temperature=0,
+            max_tokens=None,
+            timeout=None,
+            max_retries=2,
         )
-    ]
-
-    # Grader
-    model = llm
-    response = model.invoke(msg)
-    return {"messages": [response]}
+        self.tools = [self.retriever_tool]
+        self.workflow = self.create_workflow()
 
 
-def generate(state):
-    """
-    Generate answer
+    @tool
+    def retriever_tool(query: str) -> str:
+        """Search and return information about the user query from the circulars by UP Police."""
+        d = docsearch.similarity_search(query, k=10)
+        context = ""
+        for i in d:
+            i.metadata['source'] = i.metadata['source'].split('/')[-1]
+            for key, value in drive_link_dictionary.items():
+                # print(i.metadata['source'], key)
+                if i.metadata['source'][:-4] == key[:-4]:
+                    i.metadata['source'] = value
+                    break
+            context += f"{i.metadata}" + "\n" + i.page_content + "\n\n"
+        return context
 
-    Args:
-        state (messages): The current state
+    def create_workflow(self):
+        class AgentState(TypedDict):
+            messages: Annotated[Sequence[BaseMessage], add_messages]
 
-    Returns:
-         dict: The updated state with re-phrased question
-    """
-    print("---GENERATE---")
-    messages = state["messages"]
-    question = messages[0].content
-    last_message = messages[-1]
+        def grade_documents(state) -> Literal["generate", "rewrite"]:
+            class Grade(BaseModel):
+                binary_score: str = Field(description="Relevance score 'yes' or 'no'")
 
-    docs = last_message.content
+            model = self.llm
+            llm_with_tool = model.with_structured_output(Grade)
+            prompt = PromptTemplate(
+                template="""You are a grader assessing relevance of a retrieved document to a user question. \n 
+                Here is the retrieved document: \n\n {context} \n\n
+                Here is the user question: {question} \n
+                If the document contains keyword(s) or semantic meaning related to the user question, grade it as relevant. \n
+                Give a binary score 'yes' or 'no' score to indicate whether the document is relevant to the question.""",
+                input_variables=["context", "question"],
+            )
+            chain = prompt | llm_with_tool
+            messages = state["messages"]
+            last_message = messages[-1]
+            question = messages[0].content
+            docs = last_message.content
+            scored_result = chain.invoke({"question": question, "context": docs})
+            score = scored_result.binary_score
+            return "generate" if score == "yes" else "rewrite"
 
+        def agent(state):
+            messages = state["messages"]
+            model = self.llm.bind_tools(self.tools)
+            response = model.invoke(messages)
+            return {"messages": [response]}
 
-    prompt = ChatPromptTemplate([
-        ("system", '''You are an assistant for question-answering tasks related to the circulars released by UP Police.
-          Use the following pieces of retrieved circulars to answer the question. 
-         If you don't know the answer, just say that you don't know. 
-                    Question: {question} 
-                    Context: {context}  
-                    Answer:''')
-    ])
+        def rewrite(state):
+            messages = state["messages"]
+            question = messages[0].content
+            msg = [
+                HumanMessage(
+                    content=f""" \n 
+                    Look at the input and try to reason about the underlying semantic intent / meaning. \n 
+                    Here is the initial question:
+                    \n ------- \n
+                    {question} 
+                    \n ------- \n
+                    Formulate an improved question and output the formulated question only: """,
+                )
+            ]
+            model = self.llm
+            response = model.invoke(msg)
+            return {"messages": [response]}
 
-    # LLM
-    model = llm
+        def generate(state):
+            messages = state["messages"]
+            question = messages[0].content
+            last_message = messages[-1]
+            docs = last_message.content
+            prompt = ChatPromptTemplate([
+                ("system", '''You are an assistant for question-answering tasks related to the circulars released by UP Police.
+                Use the following pieces of retrieved circulars to answer the question. 
+                If you don't know the answer, just say that you don't know. 
+                After answering the question, provide the source of the information mentioned before each retrieved context in the format:
+                    Source 1: 
+                    Source 2:
+                    Source 3:
+                    ...
+                    Source n:
+                Only mention the sources that you have actually used to answer.
+                Question: {question} 
+                Context: {context}  
+                Answer:''')
+            ])
+            model = self.llm
+            rag_chain = prompt | model | StrOutputParser()
+            response = rag_chain.invoke({"context": docs, "question": question})
+            return {"messages": [response]}
 
-    # Post-processing
-    def format_docs(docs):
-        return "\n\n".join(doc.page_content for doc in docs)
+        workflow = StateGraph(AgentState)
+        workflow.add_node("agent", agent)
+        retrieve = ToolNode([self.retriever_tool])
+        workflow.add_node("retrieve", retrieve)
+        workflow.add_node("rewrite", rewrite)
+        workflow.add_node("generate", generate)
+        workflow.add_edge(START, "agent")
+        workflow.add_conditional_edges("agent", tools_condition, {"tools": "retrieve", END: END})
+        workflow.add_conditional_edges("retrieve", grade_documents)
+        workflow.add_edge("generate", END)
+        workflow.add_edge("rewrite", "agent")
+        return workflow.compile()
 
-    # Chain
-    rag_chain = prompt | model | StrOutputParser()
+    def chatbot(self, query: str):
+        def make_serializable(obj):
+            if isinstance(obj, (AIMessage, HumanMessage)):
+                return obj.content
+            elif isinstance(obj, dict):
+                return {key: make_serializable(value) for key, value in obj.items()}
+            elif isinstance(obj, list):
+                return [make_serializable(item) for item in obj]
+            elif hasattr(obj, '__dict__'):  # Handle custom objects like ToolMessage
+                return {key: make_serializable(value) for key, value in obj.__dict__.items()}
+            return str(obj)  # Fallback for other non-serializable objects
 
-    # Run
-    response = rag_chain.invoke({"context": docs, "question": question})
-    return {"messages": [response]}
+        inputs = {"messages": [("user", query)]}
+        results = {}
+        for output in self.workflow.stream(inputs):
+            for key, value in output.items():
+                results[key] = value
 
-# Define a new graph
-workflow = StateGraph(AgentState)
-
-# Define the nodes we will cycle between
-workflow.add_node("agent", agent)  # agent
-retrieve = ToolNode([retriever_tool])
-workflow.add_node("retrieve", retrieve)  # retrieval
-workflow.add_node("rewrite", rewrite)  # Re-writing the question
-workflow.add_node(
-    "generate", generate
-)  # Generating a response after we know the documents are relevant
-# Call agent node to decide to retrieve or not
-workflow.add_edge(START, "agent")
-
-# Decide whether to retrieve
-workflow.add_conditional_edges(
-    "agent",
-    # Assess agent decision
-    tools_condition,
-    {
-        # Translate the condition outputs to nodes in our graph
-        "tools": "retrieve",
-        END: END,
-    },
-)
-
-# Edges taken after the `action` node is called.
-workflow.add_conditional_edges(
-    "retrieve",
-    # Assess agent decision
-    grade_documents,
-)
-workflow.add_edge("generate", END)
-workflow.add_edge("rewrite", "agent")
-
-# Compile
-graph = workflow.compile()
-
-
-
-import pprint
-
-def chatbot(query: str):
-    inputs = {
-        "messages": [
-            ("user", query),
-        ]
-    }
-    for output in graph.stream(inputs):
-        for key, value in output.items():
-            pprint.pprint(f"Output from node '{key}':")
-            pprint.pprint("---")
-            pprint.pprint(value, indent=2, width=80, depth=None)
-        pprint.pprint("\n---\n")
-
-
-# print(chatbot("What is the criteria for membership into the Anti Narcotics Task Forec?"))
+        serializable_results = make_serializable(results)
+        print(json.dumps(serializable_results, indent=2))
