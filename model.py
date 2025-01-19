@@ -30,7 +30,6 @@ embeddings = VoyageAIEmbeddings(
     voyage_api_key=os.environ.get('VOYAGE_API_KEY'), model="voyage-3-large"
 )
 docsearch = PineconeVectorStore(index=index, embedding=embeddings)
-print(os.environ.get('GROQ_API_KEY'))
 with open('drive_link_dictionary.json') as f:
     drive_link_dictionary = json.load(f)
 

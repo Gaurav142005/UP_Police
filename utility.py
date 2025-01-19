@@ -11,7 +11,7 @@ def translate_text(target_language_code: str, source_language_code: str, text: s
     Translate text from the source language to the target language using the translation API.
     """
     if(text == ''):
-        text = "Hello Uttar Pradesh! How may I help you today"
+        text = "Hello Uttar Pradesh Police! How may I help you today"
     payload = {
         "input": text,
         "target_language_code": target_language_code,
