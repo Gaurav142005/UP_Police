@@ -6,8 +6,8 @@ from typing import Annotated, Literal, Sequence, TypedDict
 from langchain_community.document_loaders import TextLoader
 from pinecone import Pinecone
 from langchain_pinecone import PineconeVectorStore
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_huggingface.embeddings import HuggingFaceEmbeddings
+from langchain_core.messages import HumanMessage
+from langgraph.checkpoint.memory import MemorySaver
 from langchain_groq import ChatGroq
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 from langchain_core.output_parsers import StrOutputParser
@@ -15,10 +15,11 @@ from langchain_core.prompts import PromptTemplate, ChatPromptTemplate
 from langchain_core.pydantic_v1 import BaseModel, Field
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import tools_condition
-from langgraph.graph import END, StateGraph, START
+from langgraph.graph import END, StateGraph, START, MessagesState
 from langgraph.prebuilt import ToolNode
 from langchain_core.tools import tool
 from langchain_voyageai import VoyageAIEmbeddings
+import pprint
 
 load_dotenv()
 
@@ -37,33 +38,36 @@ with open('drive_link_dictionary.json') as f:
 class Chatbot:
     def __init__(self):
         self.llm = ChatGroq(
-            model="llama-3.3-70b-versatile",
+            model="llama3-70b-8192", #  llama3-70b-8192 or llama-3.3-70b-versatile
             temperature=0,
             max_tokens=None,
             timeout=None,
             max_retries=2,
         )
-        self.tools = [self.retriever_tool]
         self.workflow = self.create_workflow()
-
-
-    @tool
-    def retriever_tool(query: str) -> str:
-        """Search and return information about the user query from the circulars by UP Police."""
-        d = docsearch.similarity_search(query, k=10)
-        context = ""
-        for i in d:
-            i.metadata['source'] = i.metadata['source'].split('/')[-1]
-            for key, value in drive_link_dictionary.items():
-                if i.metadata['source'][:-4] == key[:-4]:
-                    i.metadata['source'] = value
-                    break
-            context += f"{i.metadata}" + "\n" + i.page_content + "\n\n"
-        return context
 
     def create_workflow(self):
         class AgentState(TypedDict):
             messages: Annotated[Sequence[BaseMessage], add_messages]
+        def retrieve(state: dict) -> dict:
+            """Retrieves relevant documents based on the rewritten query."""
+            # print("---CALL RETRIEVE---")
+            messages = state["messages"]
+            query = messages[-1].content  # Get the rewritten query from the last message
+
+            # Perform similarity search
+            d = docsearch.similarity_search(query, k=10)
+            context = ""
+            for i in d:
+                i.metadata['source'] = i.metadata['source'].split('/')[-1]
+                for key, value in drive_link_dictionary.items():
+                    if i.metadata['source'][:-4] == key[:-4]:
+                        i.metadata['source'] = value
+                        break
+                context += f"{i.metadata}" + "\n" + i.page_content + "\n\n"
+
+            # Append the retrieved context to the state
+            return {"messages": messages + [HumanMessage(content=context)]}
 
         def grade_documents(state) -> Literal["generate", "rewrite"]:
             class Grade(BaseModel):
@@ -76,6 +80,7 @@ class Chatbot:
                 Here is the retrieved document: \n\n {context} \n\n
                 Here is the user question: {question} \n
                 If the document contains keyword(s) or semantic meaning related to the user question, grade it as relevant. \n
+                If the question is a general question that can be answered without the document, grade it as irrelevant. \n
                 Give a binary score 'yes' or 'no' score to indicate whether the document is relevant to the question.""",
                 input_variables=["context", "question"],
             )
@@ -86,12 +91,29 @@ class Chatbot:
             docs = last_message.content
             scored_result = chain.invoke({"question": question, "context": docs})
             score = scored_result.binary_score
-            return "generate" if score == "yes" else "rewrite"
-
-        def agent(state):
+            return "generate" if score == "yes" else "generic_agent"
+        
+        def generic_agent(state):
+            """Answers to the conversational questions based on general knowledge that doesnt require retrieval.
+            
+            Args:
+                state (messages): The current state
+            
+            Returns:
+                dict: The updated state with the agent response appended to messages
+            """
+            print("---CALL GENERIC AGENT---")
             messages = state["messages"]
-            model = self.llm.bind_tools(self.tools)
-            response = model.invoke(messages)
+            question = messages[1].content
+            prompt = ChatPromptTemplate([
+                ("system", '''You are an helpful assistant for generic questions.'''),
+                ("human", '''{question}''')
+            ])
+            model = self.llm
+            generic_chain = prompt | model | StrOutputParser()
+
+            # Run
+            response = generic_chain.invoke({"question": question})
             return {"messages": [response]}
 
         def rewrite(state):
@@ -137,18 +159,29 @@ class Chatbot:
             response = rag_chain.invoke({"context": docs, "question": question})
             return {"messages": [response]}
 
+
         workflow = StateGraph(AgentState)
-        workflow.add_node("agent", agent)
-        retrieve = ToolNode([self.retriever_tool])
-        workflow.add_node("retrieve", retrieve)
-        workflow.add_node("rewrite", rewrite)
-        workflow.add_node("generate", generate)
-        workflow.add_edge(START, "agent")
-        workflow.add_conditional_edges("agent", tools_condition, {"tools": "retrieve", END: END})
-        workflow.add_conditional_edges("retrieve", grade_documents)
-        workflow.add_edge("generate", END)
-        workflow.add_edge("rewrite", "agent")
-        return workflow.compile()
+        workflow.add_node("rewrite", rewrite)  # Rewriting the question
+        workflow.add_node("retrieve", retrieve)  # Retrieval step
+        workflow.add_node("generate", generate)  # Generating a response after we know the documents are relevant
+        workflow.add_node("generic_agent", generic_agent)  # Generic agent
+
+        # Define edges for transitions
+        workflow.add_edge(START, "rewrite")  # Start to rewrite
+        workflow.add_edge("rewrite", "retrieve")  # Rewrite to retrieve
+        workflow.add_conditional_edges(
+            "retrieve",
+            grade_documents,
+            {
+                "generate": "generate",  # If relevant, generate response
+                "generic_agent": "generic_agent",  # If not relevant, fallback to generic agent
+            },
+        )
+        workflow.add_edge("generate", END)  # Generate ends workflow
+        workflow.add_edge("generic_agent", END)  # Generic agent ends workflow
+        graph = workflow.compile()
+        return graph
+
 
     def chatbot(self, query: str) -> str:
         def make_serializable(obj):
@@ -182,7 +215,7 @@ class Chatbot:
 
             return cleaned_text, unique_links
 
-        inputs = {"messages": [("user", query)]}
+        inputs = {"messages": [HumanMessage(content=query)]}
         results = {}
         for output in self.workflow.stream(inputs):
             for key, value in output.items():
@@ -205,9 +238,10 @@ class Chatbot:
             final_response += "\n\nRelevant Sources:\n" + "\n".join(unique_links)
 
         return final_response
+
     
 if __name__ == "__main__":
     bot = Chatbot()
-    query = "What is the procedure to file an FIR?"
+    query = "what are jurisdriction of UP Police"
     response = bot.chatbot(query)
     print(response)
