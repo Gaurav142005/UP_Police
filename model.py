@@ -106,7 +106,7 @@ class Chatbot:
             messages = state["messages"]
             question = messages[1].content
             prompt = ChatPromptTemplate([
-                ("system", '''You are an helpful assistant for generic questions.'''),
+                ("system", '''You are an helpful assistant made for answering questions related to the circulars released by UP Police.'''),
                 ("human", '''{question}''')
             ])
             model = self.llm
@@ -121,15 +121,16 @@ class Chatbot:
             question = messages[0].content
             msg = [
                 HumanMessage(
-                    content=f""" \n 
-                    Look at the input and try to reason about the underlying semantic intent / meaning. \n 
-                    Here is the initial question:
-                    \n ------- \n
-                    {question} 
-                    \n ------- \n
-                    Formulate an improved question and output the formulated question only: """,
-                )
-            ]
+                    content=f""" Look at the input and try to reason about the underlying semantic intent/meaning. 
+                    The user may ask a question or just try to chat.
+                    Rewrite the query only if it pertains to topics related to UP Police, law, or orders. 
+                    Do not rewrite casual or unrelated queries like "Hi, how are you?", ONLY output the original query without any changes or explanation of your action.
+
+                    Here is the user query:
+                    {question}
+                    Formulate an improved question if it is related to UP Police, law, or orders. Otherwise, output the original query without changes:  """
+                            )
+                ]
             model = self.llm
             response = model.invoke(msg)
             return {"messages": [response]}
@@ -229,6 +230,8 @@ class Chatbot:
         final_response = ""
         if "generate" in parsed_json and "messages" in parsed_json["generate"]:
             final_response = parsed_json["generate"]["messages"][0]
+        elif "generic_agent" in parsed_json and "messages" in parsed_json["generic_agent"]:
+            final_response = parsed_json["generic_agent"]["messages"][0]
 
         # Clean the text and extract unique drive links
         final_response, unique_links = clean_text_and_extract_links(final_response)
@@ -242,6 +245,6 @@ class Chatbot:
     
 if __name__ == "__main__":
     bot = Chatbot()
-    query = "what are jurisdriction of UP Police"
+    query = "Hi how are you?"
     response = bot.chatbot(query)
     print(response)
