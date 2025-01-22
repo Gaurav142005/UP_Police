@@ -284,10 +284,10 @@ const Main = () => {
 									<div
 										className="card"
 										onClick={() =>
-											handleCardClick("What is the jurisdiction of the Uttar Pradesh Police?")
+											handleCardClick("How can the UP Police help in conducting fear-free, independent and fair Lok Sabha elections?")
 										}
 									>
-										<p style={{ textAlign: "justify", fontSize: '20px'}}>What is the jurisdiction of the Uttar Pradesh Police?</p>
+										<p style={{ textAlign: "justify", fontSize: '20px'}}>How can the UP Police help in conducting fear-free, independent and fair Lok Sabha elections?</p>
 									</div>
 									<div
 										className="card"

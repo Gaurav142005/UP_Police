@@ -4,7 +4,6 @@ from dotenv import load_dotenv
 import subprocess
 load_dotenv()
 
-
 def convert_to_html(content):
     # Save content to a markdown file
     with open('Response.md', 'w') as file:

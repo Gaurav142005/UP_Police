@@ -34,7 +34,7 @@ def convert_to_pdf():
     print(f"Received markdown content: {markdown_content}")
     markdown_content = str(markdown_content)
     convert_to_html(markdown_content)
-    if not os.path.exists("pathway.html"):
+    if not os.path.exists("Response.html"):
         return {"error": "Failed to generate PDF"}, 500
 
     return {"message": "PDF generated successfully"}
