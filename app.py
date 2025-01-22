@@ -1,15 +1,12 @@
 from flask import Flask, request, send_file, jsonify
 from flask_cors import CORS
-from convert import convert_to_html
 import os
-import json
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from werkzeug.utils import secure_filename
-import requests
 from model import Chatbot
-from utility import translate_text
+from utility import translate_text, convert_to_html
 
 app = Flask(__name__)
 CORS(app)  
@@ -44,13 +41,13 @@ def convert_to_pdf():
 
 @app.route('/download-pdf', methods=['GET'])
 def download_pdf():
-    output_file = 'pathway.html'
+    output_file = 'Response.html'
 
     # Check if the PDF exists
     if not os.path.exists(output_file):
         return {"error": "PDF not found"}, 40400
 
-    return send_file(output_file, as_attachment=True, download_name='pathway.html', mimetype='text/html')
+    return send_file(output_file, as_attachment=True, download_name='Response.html', mimetype='text/html')
 
 # Google Drive API settings
 SERVICE_ACCOUNT_FILE = "apikey.json"  # Replace with your service account file

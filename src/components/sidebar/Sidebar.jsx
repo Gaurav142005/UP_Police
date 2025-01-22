@@ -11,20 +11,6 @@ const Sidebar = () => {
 	const [isPopupVisible, setPopupVisible] = useState(false);
 	const [isFilePopupVisible, setFilePopupVisible] = useState(false);
 
-	const [formData, setFormData] = useState({
-		GoogleDrive_ObjectId: '',
-		File_Link: '',
-		GEMINI_API_KEY_30: '',
-		OPEN_AI_API_KEY_30: '',
-		FINNHUB_API_KEY_30: '',
-		GOOGLE_CSE_ID_30: '',
-		TAVILY_API_KEY_30: '',
-		GOOGLE_API_KEY_30: '',
-		JINA_API_KEY_30: '',
-		INDIAN_KANOON_API_KEY_30: '',
-		jsonFile: null
-	});
-
 	// Function to close the popup
 	const closePopup = () => {
 		setPopupVisible(false);
@@ -98,7 +84,6 @@ const Sidebar = () => {
 		if (socket && socket.readyState === WebSocket.OPEN) {
 			socket.send(JSON.stringify({ type: 'cred', formData }));
 		}
-		// Optionally, you can handle the formData (e.g., send it to an API or store it)
 		closePopup();
 	};
 
@@ -148,14 +133,14 @@ const Sidebar = () => {
 							 />
 						{extended ? <p>Files</p> : null}
 					</div>
-					<div className="bottom-item recent-entry" onClick={openPopup}>
+					{/* <div className="bottom-item recent-entry" onClick={openPopup}>
 						<img src={assets.setting_icon}
 							alt=""
 							title="Credentials"
 
 						/>
 						{extended ? <p>Credentials</p> : null}
-					</div>
+					</div> */}
 				</div>
 			</div>
 			{isPopupVisible && (

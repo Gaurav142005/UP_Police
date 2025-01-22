@@ -29,12 +29,7 @@ const Main = () => {
 		setGraphData,
 		downloadData,
 		setDownloadData,
-		socket,
-		setSocket,
 		agentData,
-		setAgentData,
-		setPrevResults,
-		onRenderAgent,
 		prevPrompts,
 		setPrevPrompts,
 		chatNo,
@@ -46,48 +41,13 @@ const Main = () => {
 		setIsUpload,
 		language,
 		setLanguage
-
 	} = useContext(Context);
 
 	const resultDataRef = useRef(null); // Reference to the result-data container for auto scrolling
 	const agentDataRef = useRef(null);
-	const agent = useRef(true);
 
 	const [markdownContent, setMarkdownContent] = useState('');
-	const [reccQs, setReccQs] = useState([])
-	const [isChecked, setIsChecked] = useState(false);
 	const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-
-	const ToggleSwitch = ({ label }) => {
-
-		const handleToggle = () => {
-			setIsChecked(!isChecked);
-			let query = !isChecked
-			if (socket && socket.readyState === WebSocket.OPEN) {
-				socket.send(JSON.stringify({ type: 'toggleRag', query }));
-			}
-		};
-
-		return (
-			<div className="container">
-				{label}{" "}
-				<div className="toggle-switch">
-					<input
-						type="checkbox"
-						className="checkbox"
-						name={label}
-						id={label}
-						checked={isChecked} // Control checkbox based on state
-						onChange={handleToggle} // Call handleToggle on checkbox change
-					/>
-					<label className="label" htmlFor={label}>
-						<span className="inner" />
-						<span className="switch" />
-					</label>
-				</div>
-			</div>
-		);
-	};
 
 	const handleMarkdownChange = (e) => {
 		setMarkdownContent(e.target.value);
@@ -104,18 +64,16 @@ const Main = () => {
 			},
 			body: JSON.stringify({ content: markdownContent }),
 		}).then(response => {
-				if (!response.ok) {
-					throw new Error('Failed to send data to the backend');
-				}
-				return response.json(); // Expecting a JSON response
-			})
+			if (!response.ok) {
+				throw new Error('Failed to send data to the backend');
+			}
+			return response.json(); // Expecting a JSON response
+		})
 			.then(data => {
 				console.log('Markdown content sent successfully to backend:', data.message);
 
 				// Now fetch the generated HTML from the backend after it's processed
-				return fetch('http://127.0.0.1:8080/download-pdf', {
-					method: 'GET',
-				});
+				return fetch('http://127.0.0.1:8080/download-pdf', { method: 'GET' });
 			})
 			.then(response => {
 				if (!response.ok) {
@@ -158,6 +116,7 @@ const Main = () => {
 	};
 
 	const handleClick = () => {
+		if (!input.trim()) return; // Prevent empty queries
 		setInput("");
 		setResultData("")
 		setShowResults(true);
@@ -189,9 +148,9 @@ const Main = () => {
 				.then((data) => {
 					console.log('Query sent successfully:', data.message);
 
-					// Directly render the string data
 					setResultData(data.message);
 					onRender(data.message);
+					setMarkdownContent(data.message)
 					setLoading(false);
 				});
 
@@ -304,7 +263,6 @@ const Main = () => {
 				<img src={assets.UPpolice_logo} className="uppLogo" alt="" />
 				<div className="rightside">
 					<Dropdown />
-					<ToggleSwitch label={"Docs"} />
 				</div>
 			</div>
 			<div className="main-content">
@@ -329,36 +287,37 @@ const Main = () => {
 											handleCardClick("What is the jurisdiction of the Uttar Pradesh Police?")
 										}
 									>
-										<p style={{ textAlign: "justify" }}>What is the jurisdiction of the Uttar Pradesh Police?</p>
+										<p style={{ textAlign: "justify", fontSize: '20px'}}>What is the jurisdiction of the Uttar Pradesh Police?</p>
 									</div>
 									<div
 										className="card"
 										onClick={() => {
 											handleCardClick(
-												"Communication related query"
+												"What is the entry procedure into the Anti Narcotics Task Force?"
 											);
 										}}
 									>
-										<p style={{ textAlign: "justify" }}>Communication related query</p>
+										<p style={{ textAlign: "justify", fontSize: '20px'}}>What is the entry procedure into the Anti Narcotics Task Force?</p>
 									</div>
 									<div
 										className="card"
 										onClick={() =>
 											handleCardClick(
-												"Communication related query"
+												"What is the procedure for police verification of applicants done by the concerned police station for issuing passports?"
 											)
 										}
 									>
-										<p style={{ textAlign: "justify" }}>
-											Communication related query</p>
+										<p style={{ textAlign: "justify", fontSize: '20px'}}>
+										What is the procedure for police verification of applicants done by the concerned police station for issuing passports?
+										</p>
 									</div>
 									<div
 										className="card"
 										onClick={() =>
-											handleCardClick("Communication related query")
+											handleCardClick("What are the guidelines regarding effective prevention and safety of events happening with tourists?")
 										}
 									>
-										<p style={{ textAlign: "justify" }}>Communication related query</p>
+										<p style={{ textAlign: "justify", fontSize: '20px'}}>What are the guidelines regarding effective prevention and safety of events happening with tourists?</p>
 									</div>
 								</div>
 							</div>
@@ -398,72 +357,7 @@ const Main = () => {
 
 								}
 
-								{downloadData && <h1 className="result-data" style={{ marginBottom: '10px' }}>Recommended Questions</h1>}
-								<div className="result-data" ref={agentDataRef} style={{ display: 'flex', gap: '10px' }}>
-									{downloadData &&
-										<div
-											className="card"
-											style={{
-												minHeight: '10vh',
-												width: '33%',  // Allow each card to take up to 33% of the width
-												marginRight: '20px',
-												display: 'flex',  // Ensure the card uses flexbox
-												flexDirection: 'column',  // Align content vertically
-												justifyContent: 'center',  // Center the text vertically within the card
-												alignItems: 'center',  // Center text horizontally
-												overflow: 'hidden',  // Hide overflow if text exceeds the card's boundaries
-												//wordWrap: 'break-word',  // Break long words if needed to fit inside the card
-												textOverflow: 'ellipsis',  // Show ellipsis if the text is too long
-											}}
-											onClick={() => handleCardClick(reccQs[0])}
-										>
-											<p style={{ textAlign: "left", fontSize: '15px', margin: '0px 6px', padding: '2px' }}>{reccQs[0]}</p>
-										</div>
-									}
-
-									{downloadData &&
-										<div
-											className="card"
-											style={{
-												minHeight: '10vh',
-												width: '33%',  // Allow each card to take up to 33% of the width
-												marginRight: '20px',
-												display: 'flex',
-												flexDirection: 'column',
-												justifyContent: 'center',
-												alignItems: 'center',
-												overflow: 'hidden',  // Hide overflow if text exceeds the card's boundaries
-												textOverflow: 'ellipsis',  // Show ellipsis if the text is too long
-											}}
-											onClick={() => handleCardClick(reccQs[1])}
-										>
-											<p style={{ textAlign: "left", fontSize: '15px', margin: '0px 6px', padding: '2px' }}>{reccQs[1]}</p>
-										</div>
-									}
-
-									{downloadData &&
-										<div
-											className="card"
-											style={{
-												minHeight: '10vh',
-												width: '33%',  // Allow each card to take up to 33% of the width
-												display: 'flex',
-												flexDirection: 'column',
-												justifyContent: 'center',
-												alignItems: 'center',
-												overflow: 'hidden',  // Hide overflow if text exceeds the card's boundaries
-												textOverflow: 'ellipsis',  // Show ellipsis if the text is too long
-											}}
-											onClick={() => handleCardClick(reccQs[2])}
-										>
-											<p style={{ textAlign: "left", fontSize: '15px', margin: '0px 6px', padding: '2px' }}>{reccQs[2]}</p>
-										</div>
-									}
-								</div>
-
 							</div>
-
-
 						</div>
 					)}
 				</div>
