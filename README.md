@@ -1,7 +1,6 @@
-### USER INTERFACE
+### UTTAR PRADESH POLICE AGENTIC RAG SYSTEM
 ---
-This directory contains the code for our User Interface utilizing the React framework alongside Websockets and a server side flask app for rendering and parsing. It allows us to try out our custom queries, generating interactive tree like graphs outlining our our dynamic multi agentic approach.
-
+This directory contains the code for our UP Police RAG application, utilizing the React framework alongside Flask for rendering and parsing. Further, it also contains our backend and the model which we have built.
 How to run the program:
 
 ```
@@ -16,7 +15,7 @@ python backend/app.py
 
 Following is the tree structure of the UI:
 ```
-├── src
+├── backend
 │   ├── app.py
 │   ├── model.py
 │   ├── utility.py
