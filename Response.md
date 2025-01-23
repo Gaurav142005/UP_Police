@@ -1,0 +1,1 @@
+Hello! Welcome to the UP Police circular assistance. I'm here to help answer any questions you may have regarding the circulars released by the Uttar Pradesh Police. How can I assist you today?

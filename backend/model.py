@@ -32,7 +32,7 @@ embeddings = VoyageAIEmbeddings(
 )
 docsearch = PineconeVectorStore(index=index, embedding=embeddings)
 
-with open('drive_link_dictionary.json') as f:
+with open('backend/drive_link_dictionary.json') as f:
     drive_link_dictionary = json.load(f)
 
 class Conversation():

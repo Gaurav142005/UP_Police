@@ -10,12 +10,10 @@ import mic_icon from './mic_icon.png'
 import message_icon from './message_icon.png'
 import code_icon from './code_icon.png'
 import send_icon from './send_icon.png'
-import gemini_icon from './gemini_icon.png'
-import satyamev_icon from './satyamev.png'
+import satyamev_icon from './Satyamev.png'
 import edit_icon from './edit_icon.png'
 import attach_icon from './attachment.png'
 import download_icon from './downloads.png'
-import main_logo from './dart_3gpp.png'
 import UPpolice_logo from './uppTextLogo.png'
 
 export const assets = {
@@ -31,11 +29,9 @@ export const assets = {
 	message_icon,
 	code_icon,
 	send_icon,
-	gemini_icon,
 	satyamev_icon,
 	edit_icon,
 	attach_icon,
 	download_icon,
-	main_logo,
 	UPpolice_logo
 };
