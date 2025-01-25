@@ -24,8 +24,6 @@ def convert_to_html(content):
     except FileNotFoundError:
         print("The 'grip' command was not found. Ensure it is installed and available in your PATH.")
 
-
-
 API_SUBSCRIPTION_KEY = os.environ.get("SARVAM_API_KEY")
 TRANSLATE_API_URL = "https://api.sarvam.ai/translate"
 
