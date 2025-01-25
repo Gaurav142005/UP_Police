@@ -15,6 +15,7 @@ python backend/app.py
 
 Following is the tree structure of the UI:
 ```
+├── Data_Ingestion
 ├── backend
 │   ├── app.py
 │   ├── model.py
@@ -50,3 +51,13 @@ Following is the tree structure of the UI:
 
 5. **``utility.py``**:
     - Contains some utility functions for our backend file. 
+
+#### Downloading Circulars Pipeline
+
+To download the circulars from the UP Police website, and convert them to translated text files, run the following command and specify the year for which the files will be downloaded.
+```
+cd Data_Ingestion
+python download.py
+```
+
+This script first scrapes and downloads all circulars of that year from `Scraper.py`, then converts the pdfs to jpg in `pdf_to_jpg.py`, then goes to `jpg_to_text.py` and finally translates the text through `translate.py` to get the required text files for our RAG.
