@@ -136,10 +136,11 @@ class JPGtoTEXT:
 
 
     def correct_text(self, text):
-        api_key = os.environ.get("OPENAI_API_KEY")
-        model_name = "gpt-4o"
-
-        client = OpenAI(api_key=api_key)
+        api_key = os.environ.get("GEMINI_API_KEY")
+        endpoint = "https://generativelanguage.googleapis.com/v1beta/openai/"
+        model_name = "gemini-2.5-flash"
+        
+        client = OpenAI(base_url=endpoint,api_key=api_key)
 
         response = client.chat.completions.create(
             messages=[
@@ -221,7 +222,12 @@ class JPGtoTEXT:
                     
                     # Remove unnecessary newlines
                     formatted_text = '\n'.join(line for line in output_lines if line.strip() != "\n") 
+                    # Implement rate limiting to call correct_text exactly 8 times per minute
+                    if iteration_count % 8 == 0 and iteration_count != 0:
+                        time.sleep(60)  # Sleep for 60 seconds after every 8 calls
+                    
                     formatted_text = self.correct_text(self.remove_special_characters(formatted_text))
+                    iteration_count += 1
                     total_text += formatted_text
                     
                 

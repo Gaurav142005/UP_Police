@@ -8,7 +8,7 @@ from pinecone import Pinecone
 from langchain_pinecone import PineconeVectorStore
 from langchain_core.messages import HumanMessage
 from langgraph.checkpoint.memory import MemorySaver
-from langchain_groq import ChatGroq
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import PromptTemplate, ChatPromptTemplate
@@ -23,6 +23,16 @@ import pprint
 
 load_dotenv()
 
+
+def set_google_credentials(filename: str):
+    full_path = os.path.join(os.path.dirname(__file__), filename)
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = full_path
+
+# Set the Google Application Credentials
+set_google_credentials("apikey.json")
+
+
+
 pinecone_api_key = os.environ.get("PINECONE_API_KEY")
 pc = Pinecone(api_key=pinecone_api_key)
 index_name = "bcs-up-police"
@@ -32,7 +42,7 @@ embeddings = VoyageAIEmbeddings(
 )
 docsearch = PineconeVectorStore(index=index, embedding=embeddings)
 
-with open('backend/drive_link_dictionary.json') as f:
+with open('./drive_link_dictionary.json') as f:
     drive_link_dictionary = json.load(f)
 
 class Conversation():
@@ -47,14 +57,16 @@ class Conversation():
 history = Conversation()
 class Chatbot:
     def __init__(self):
-        self.llm = ChatGroq(
-            model="llama-3.3-70b-versatile", #  llama3-70b-8192 or llama-3.3-70b-versatile
-            temperature=0,
-            max_tokens=None,
-            timeout=None,
-            max_retries=2,
-        )
+        self.llm = ChatGoogleGenerativeAI(
+                model="gemini-2.5-flash-lite-preview-06-17",
+                temperature=0,
+                max_tokens=None,
+                timeout=None,
+                max_retries=2,
+            )
         self.workflow = self.create_workflow()
+        self.relevant_sources = set()  # Initialize set for relevant sources
+        self.source_scores = {}  # Store similarity scores for sorting
 
     def create_workflow(self):
         class AgentState(TypedDict):
@@ -113,22 +125,29 @@ class Chatbot:
             return {"messages": messages + [HumanMessage(content=context)]}
         
         def retrieve_again(state: dict) -> dict:
-            """Retrieves relevant documents based on the rewritten query."""
+            """Retrieves relevant documents based on the rewritten query with similarity scoring."""
             
             messages = state["messages"]
             query = messages[-1].content 
-            # print("retrieve node per aa gye with query :" + query)
+            # print("retrieve again node per aa gye with query :" + query)
 
-           
-            d = docsearch.similarity_search(query, k=10)
+            # Use similarity_search_with_score to get cosine similarity scores
+            d = docsearch.similarity_search_with_score(query, k=10)
             context = ""
-            for i in d:
-                i.metadata['source'] = i.metadata['source'].split('/')[-1]
+            
+            for doc, score in d:
+                doc.metadata['source'] = doc.metadata['source'].split('/')[-1]
                 for key, value in drive_link_dictionary.items():
-                    if i.metadata['source'][:-4] == key[:-4]:
-                        i.metadata['source'] = value
+                    if doc.metadata['source'][:-4] == key[:-4]:
+                        doc.metadata['source'] = value
                         break
-                context += f"{i.metadata}" + "\n" + i.page_content + "\n\n"
+                
+                # Add sources with similarity >= 0.75 to the set
+                if score >= 0.5:
+                    self.relevant_sources.add(doc.metadata['source'])
+                    self.source_scores[doc.metadata['source']] = score
+                    # print(f"\nAdding source: {doc.metadata['source']} with score: {score}\n\n")
+                context += f"{doc.metadata}" + "\n" + doc.page_content + "\n\n"
 
             # Append the retrieved context to the state
             return {"messages": messages + [HumanMessage(content=context)]}
@@ -177,10 +196,10 @@ class Chatbot:
             # print("generic agent per aa gye with query :" + question)
             history.add_message(question) # add the question to the history
             prompt = ChatPromptTemplate([
-                ("system", '''You are an helpful assistant made for answering questions related to the circulars released by UP Police.\n
-                You will be provided with the summary of past conversation. Refer to it if needed.\n
-                {system_message}\n
-                Question: {question}\n
+                ("system", '''You are an helpful assistant made for answering questions related to the circulars released by UP Police.
+                You will be provided with the summary of past conversation. Refer to it if needed.'''),
+                ("user",''' Summary: {system_message}
+                Question: {question}
                 Answer:
                 '''),
             ])
@@ -191,38 +210,45 @@ class Chatbot:
             response = generic_chain.invoke({"question": question, "system_message": system_message})
             return {"messages": [response]}
 
+
+
         def rewrite(state):
             """
             Transform the query to produce a better question.
-
-            Args:
-                state (messages): The current state
-
-            Returns:
-                dict: The updated state with re-phrased question
             """
-
+            
+            class QueryRewrite(BaseModel):
+                rewritten_query: str = Field(description="The rewritten query or original query if no rewriting needed")
+            
             messages = state["messages"]
             question = messages[0].content
             # print("rewrite node per aa gye with query :" + question)
 
-            msg = [
-                HumanMessage(
-                    content=f""" Look at the input and try to reason about the underlying semantic intent/meaning. 
-                    The user may ask a question or just try to chat.
-                    Rewrite the query only if it pertains to topics related to UP Police, law, or orders. 
-                    Do not rewrite casual or unrelated queries like "Hi, how are you?", ONLY output the original query without any changes or explanation of your action.
-
-        Here is the user query:
-        {question}
-        Formulate an improved question if it is related to UP Police, law, or orders. Otherwise, output the original query without changes:  """
-                )
-            ]
-
-            # Grader
             model = self.llm
-            response = model.invoke(msg)
-            return {"messages": [response]}
+            llm_with_tool = model.with_structured_output(QueryRewrite)
+            
+            prompt = PromptTemplate(
+                template="""Look at the input and try to reason about the underlying semantic intent/meaning. 
+                The user may ask a question or just try to chat.
+                Rewrite the query only if it pertains to topics related to UP Police, law, or orders. 
+                Do not rewrite casual or unrelated queries like "Hi, how are you?".
+                
+                Here is the user query: {question}
+                
+                If the query is related to UP Police, law, or orders, provide an improved version.
+                Otherwise, return the original query unchanged.""",
+                input_variables=["question"]
+            )
+            
+            chain = prompt | llm_with_tool
+            response = chain.invoke({"question": question})
+            
+            # Extract only the rewritten query from the structured output
+            rewritten_query = response.rewritten_query
+            
+            return {"messages": [HumanMessage(content=rewritten_query)]}
+
+
 
         def generate(state):
             """
@@ -250,25 +276,34 @@ class Chatbot:
             history.add_message(question) # add the question to the history
 
             docs = last_message.content
-
-
+            
+            # Modified prompt - removed source formatting instructions
             prompt = ChatPromptTemplate([
-                ("system", '''You are an assistant for question-answering tasks related to the circulars released by UP Police.
-                Use the following pieces of retrieved circulars to answer the question comprehensively. 
-                Whenever there is a paragraph change add a <br> tag. 
-                If you don't know the answer, just say that you don't know. 
-                After answering the question, provide the source of the information mentioned before each retrieved context in the format:
-                    Source 1: 
-                    Source 2:
-                    Source 3:
-                    ...
-                    Source n:
-                Only mention the sources that you have actually used to answer.
-                You will be provided with the summary of past conversation. Refer to it if needed.\n
-                            {system_message}\n
-                            Question: {question} 
-                            Context: {context}  
-                            Answer:''')
+                ("system", '''You are an assistant that helps people understand UP Police circulars and procedures in simple, everyday language.
+
+                When answering questions:
+                - Use plain, conversational language that anyone can understand
+                - Explain technical terms and legal jargon in simple words
+                - Structure your answer like you're talking to a friend or family member
+                - Start with the most important information first
+                - Use bullet points or numbered lists when helpful
+                - Give practical examples when possible
+                - If mentioning laws or sections, briefly explain what they mean in simple terms
+
+                For example, instead of saying "non-cognizable cases," say "minor cases that police don't actively investigate."
+
+                Make your response feel helpful and reassuring, not like reading a government document. Focus on what the person actually needs to know and do.
+
+                If the answer spans multiple paragraphs, insert a <br> tag between each paragraph.
+                If the answer is not available in the provided circulars, clearly state: "I don't have this information in the UP Police circulars I can access."
+                Refer to the past conversation summary if relevant.
+                '''),
+
+               ("user", '''Summary: {system_message}
+        
+                 Question: {question}
+                 Context: {context}
+                 Answer:''')
             ])
 
             # LLM
@@ -290,19 +325,18 @@ class Chatbot:
         workflow.add_node("generic_agent", generic_agent)  # Generic agent
         workflow.add_node("summarize_conversation", summarize_conversation)
         workflow.add_node("retrieve_again", retrieve_again)
-
-
-        workflow.add_edge(START, "retrieve")  # Start to rewrite
+        
+        workflow.add_edge(START, "retrieve")  # Start to retrieve
         workflow.add_conditional_edges(
             "retrieve",
             grade_documents,
             {
-                "rewrite": "rewrite",  # If relevant, generate response
+                "rewrite": "rewrite",  # If relevant, go to rewrite
                 "generic_agent": "generic_agent",  # If not relevant, fallback to generic agent
             },
         )
-        workflow.add_edge("rewrite", "retrieve_again")  # Rewrite to retrieve
-        workflow.add_edge("retrieve_again", "generate")  # Retrieve to generate
+        workflow.add_edge("rewrite", "retrieve_again")  # Rewrite to retrieve_again
+        workflow.add_edge("retrieve_again", "generate")  # Retrieve_again to generate
         workflow.add_edge("generate", "summarize_conversation")
         workflow.add_edge("generic_agent", "summarize_conversation")
         workflow.add_edge("summarize_conversation", END)
@@ -325,26 +359,9 @@ class Chatbot:
                 return {key: make_serializable(value) for key, value in obj._dict_.items()}
             return str(obj)  # Fallback for other non-serializable objects
 
-        def clean_text_and_extract_links(text: str) -> (str, list):
-            """Cleans text, removes placeholders like 'Source 1' but preserves numbered lists and extracts unique drive links."""
-            # Extract drive links
-            drive_links = re.findall(r"https://drive\.google\.com/file/d/[a-zA-Z0-9_-]+/view", text)
-            unique_links = list(set(drive_links))  # Remove duplicates
-            
-            # Remove placeholders like 'Source 1:', 'Source 2:' but preserve numbered lists
-            cleaned_text = re.sub(r"Source \d+:\s*", "", text)
-            
-            # Remove links from text body
-            cleaned_text = re.sub(r"https://drive\.google\.com/file/d/[a-zA-Z0-9_-]+/view", "", cleaned_text)
-            
-            # Replace multiple newlines with a single newline
-            cleaned_text = re.sub(r'\n+', '\n', cleaned_text)
-            
-            # Strip leading and trailing whitespace
-            cleaned_text = cleaned_text.strip()
-            
-            return cleaned_text, unique_links
-
+        # Initialize relevant sources set for each query
+        self.relevant_sources = set()
+        self.source_scores = {}
 
         inputs = {"messages": [HumanMessage(content=query)]}
         results = {}
@@ -361,16 +378,22 @@ class Chatbot:
         if "generate" in parsed_json and "messages" in parsed_json["generate"]:
             final_response = parsed_json["generate"]["messages"][0]
         elif "generic_agent" in parsed_json and "messages" in parsed_json["generic_agent"]:
-            # print(parsed_json["generic_agent"]["messages"][0])
             final_response = parsed_json["generic_agent"]["messages"][0]
 
-        # Clean the text and extract unique drive links
-        final_response, unique_links = clean_text_and_extract_links(final_response)
-
-        # Append unique links at the end of the response as relevant sources
-        if unique_links:
+        # Format sources in descending order of similarity score
+        if self.relevant_sources:
+            # Sort sources by similarity score in descending order
+            sorted_sources = sorted(
+            self.relevant_sources, 
+            key=lambda x: self.source_scores.get(x, 0), 
+            reverse=True
+            )
+            
+            # Limit to at most 3 relevant sources
+            sorted_sources = sorted_sources[:3]
+            
             final_response += "<br><br><h3>Relevant Sources:</h3>"
-            for link in unique_links:
-                final_response += f"<a href='{link}' target='_blank'>{link}</a><br>"
+            for source in sorted_sources:
+                final_response += f"<a href='{source}' target='_blank'>{source}</a><br>"
 
         return final_response
