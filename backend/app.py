@@ -18,11 +18,9 @@ def handle_query():
     data = request.json
     query = data.get('query', '')
     print(query)
-    lang = data.get('lang', '')
-    print(lang)
-    response = bot.chatbot(query)   
-    if(lang == 'hindi'):
-        response = translate_text("hi-IN", "en-IN", response)
+    language = data.get('lang', '')
+    print(language)
+    response = bot.chatbot(query, language)   
     print(response)
     # Log or process the received query
     return {"message": response},200

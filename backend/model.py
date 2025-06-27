@@ -19,6 +19,7 @@ from langgraph.graph import END, StateGraph, START, MessagesState
 from langgraph.prebuilt import ToolNode
 from langchain_core.tools import tool
 from langchain_voyageai import VoyageAIEmbeddings
+from deep_translator import GoogleTranslator
 import pprint
 
 load_dotenv()
@@ -347,7 +348,7 @@ class Chatbot:
         return graph
 
 
-    def chatbot(self, query: str) -> str:
+    def chatbot(self, query: str, language: str) -> str:
         def make_serializable(obj):
             if isinstance(obj, (AIMessage, HumanMessage)):
                 return obj.content
@@ -379,6 +380,10 @@ class Chatbot:
             final_response = parsed_json["generate"]["messages"][0]
         elif "generic_agent" in parsed_json and "messages" in parsed_json["generic_agent"]:
             final_response = parsed_json["generic_agent"]["messages"][0]
+        
+        if language == 'hindi':
+            final_response = GoogleTranslator(source='en', target='hi').translate(final_response)
+
 
         # Format sources in descending order of similarity score
         if self.relevant_sources:
