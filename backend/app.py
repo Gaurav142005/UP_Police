@@ -6,7 +6,7 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from werkzeug.utils import secure_filename
 from model import Chatbot
-from utility import translate_text, convert_to_html
+from utility import convert_to_html
 
 app = Flask(__name__)
 CORS(app)  
