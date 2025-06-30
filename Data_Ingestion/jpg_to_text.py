@@ -19,14 +19,14 @@ cwd = os.getcwd()
 jpg_path = cwd + '/downloads/jpgs'
 txt_path = cwd + '/downloads/txts'
 
-years = os.listdir(jpg_path)
+
 
 
 class JPGtoTEXT:
-    def __init__(self):
-        pass
+    def __init__(self,years):
+        self.years = years
     def preprocess(self):
-        for year in years:
+        for year in self.years:
             circulars = os.listdir(jpg_path + '/' + year)
             for circular in tqdm.tqdm(circulars, desc=f"Preprocessing circulars of {year}"):
                 for page in os.listdir(jpg_path + '/' + year + '/' + circular):
@@ -59,7 +59,7 @@ class JPGtoTEXT:
                     continue
             else:
                 result.append(char)
-        print("Brackets removed")
+        # print("Brackets removed")
         
         # Remove unmatched opening brackets
         unmatched_open_brackets = set(stack)
@@ -87,17 +87,17 @@ class JPGtoTEXT:
 
     def convert_hindi_to_english_numerals(self,input_string):
         hindi_to_english = {
-            '०': '0', '१': '1', '२': '2', '३': '3', '४': '4', 
-            '५': '5', '६': '6', '७': '7', '८': '8', '९': '9'
+            'à¥¦': '0', 'à¥§': '1', 'à¥¨': '2', 'à¥©': '3', 'à¥ª': '4', 
+            'à¥«': '5', 'à¥¬': '6', 'à¥­': '7', 'à¥®': '8', 'à¥¯': '9'
         }
         return ''.join(hindi_to_english.get(char, char) for char in input_string)
 
     def replace_specific_sequences(self,input_string):
         def replace_match(match):
             str_match = match.group(1)
-            # Check if str_match contains 'विषय', is '०', has no spaces, or no numbers
-            if 'विषय' in str_match:
-                return match.group(0)  # Keep the whole match if it contains "विषय"
+            # Check if str_match contains 'à¤µà¤¿à¤·à¤¯', is 'à¥¦', has no spaces, or no numbers
+            if 'à¤µà¤¿à¤·à¤¯' in str_match:
+                return match.group(0)  # Keep the whole match if it contains "à¤µà¤¿à¤·à¤¯"
             if str_match == '0' or (not any(char.isdigit() for char in str_match) and ' ' not in str_match):
                 return '\n'
             return match.group(0)  # Return the whole match if it doesn't meet the conditions
@@ -109,11 +109,11 @@ class JPGtoTEXT:
         return cleaned_string
 
     def remove_characters_after_bhavdiya(self,input_string):
-        # Regular expression to find 'भवदीय' followed by any characters until the next '('
-        pattern = re.compile(r'(भवदीय[^(]*\()')
+        # Regular expression to find 'à¤­à¤µà¤¦à¥€à¤¯' followed by any characters until the next '('
+        pattern = re.compile(r'(à¤­à¤µà¤¦à¥€à¤¯[^(]*\()')
         
-        # Replace the matched pattern with 'भवदीय('
-        cleaned_string = pattern.sub('भवदीय (', input_string)
+        # Replace the matched pattern with 'à¤­à¤µà¤¦à¥€à¤¯('
+        cleaned_string = pattern.sub('à¤­à¤µà¤¦à¥€à¤¯ (', input_string)
         
         return cleaned_string
     
@@ -130,7 +130,7 @@ class JPGtoTEXT:
         cleaned_string = self.convert_hindi_to_english_numerals(cleaned_string)
         # Replace sequences \nstr\n based on the given conditions
         cleaned_string = self.replace_specific_sequences(cleaned_string)
-        # Remove characters after 'भवदीय' until '('
+        # Remove characters after 'à¤­à¤µà¤¦à¥€à¤¯' until '('
         cleaned_string = self.remove_characters_after_bhavdiya(cleaned_string)
         return cleaned_string
 
@@ -164,16 +164,30 @@ class JPGtoTEXT:
 
         return response.choices[0].message.content
 
-    def convert(self):
+    def convert(self,already_indexed=None):
         # self.preprocess()
-        for year in years:
+        for year in self.years:
             circulars = os.listdir(jpg_path + '/' + year)
+            already_exists = os.listdir(txt_path + '/' + year) if os.path.exists(txt_path + '/' + year) else []
             for circular in tqdm.tqdm(circulars, desc=f"Extracting text from circulars of {year}"):
-                
+                if circular + '.txt' in already_exists:
+                    print(f"Skipping {circular} as it is already processed.")
+                    continue
+                circular_name = circular + '.pdf'
+                if already_indexed and circular_name in already_indexed:
+                    print(f"Skipping {circular_name} as it is already indexed.")
+                    continue
                 total_text=""
                 iteration_count = 0
-                for page in os.listdir(jpg_path + '/' + year + '/' + circular):
-
+                pages = os.listdir(jpg_path + '/' + year + '/' + circular)
+                order=[]
+                for page in pages:
+                    page=page[:-4]
+                    number = page.split('_')[-1]
+                    order.append((int(number), page+'.jpg'))
+                order.sort()
+                for number, page in order:
+                    print(f"Processing {page} in {circular} of {year}")
                     image_path = (jpg_path + '/' + year + '/' + circular + '/' + page)
                     result = reader.readtext(image_path)
                     formatted_lines = []

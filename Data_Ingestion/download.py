@@ -1,28 +1,29 @@
 import os
 import subprocess
 from Scraper import Circulars
+from pdf_to_jpg import PDFtoJPG
 
 
-def get_years():
-    years = input("Enter years separated by commas: ").split(',')
-    return [int(year.strip()) for year in years if year.strip().isdigit()]
+class data_fetch:
+    def __init__(self,years):
+        """"years: List of years to download circulars for"""
+        self.years = years
 
-def run_scripts(years, script_names):
-    circ = Circulars()
-    circ.download(years)
+    def fetch(self,already_indexed):
+        print(self.years)
+        circ = Circulars()
+        circ.download(self.years)
+        
+        pdf_to_image = PDFtoJPG()
+        pdf_to_image.convert(self.years,already_indexed)
 
-if __name__ == "__main__":
-    years = get_years()
-    print(years)
-    circ = Circulars()
-    circ.download(years)
+        subprocess.run([
+            "./venv_openai/bin/python", "run_jpg_to_text.py", *self.years
+        ], check=True)
 
-    script_names = ["pdf_to_jpg.py", 'jpg_to_text.py', "translate.py"]
+        subprocess.run([
+            "./venv_translate/bin/python", "run_translate.py"
+        ], check=True)
 
-    for script in script_names:
-        try:
-            print(f"Running {script}")
-            subprocess.run(["python", script], check=True)
-        except subprocess.CalledProcessError as e:
-            print(f"Error running {script}")
-            break
+
+        

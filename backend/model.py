@@ -137,11 +137,11 @@ class Chatbot:
             context = ""
             
             for doc, score in d:
-                doc.metadata['source'] = doc.metadata['source'].split('/')[-1]
-                for key, value in drive_link_dictionary.items():
-                    if doc.metadata['source'][:-4] == key[:-4]:
-                        doc.metadata['source'] = value
-                        break
+                # doc.metadata['source'] = doc.metadata['source'].split('/')[-1]
+                # for key, value in drive_link_dictionary.items():
+                #     if doc.metadata['source'][:-4] == key[:-4]:
+                #         doc.metadata['source'] = value
+                #         break
                 
                 # Add sources with similarity >= 0.75 to the set
                 if score >= 0.5:
