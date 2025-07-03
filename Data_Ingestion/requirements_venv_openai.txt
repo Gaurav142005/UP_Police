@@ -5,5 +5,6 @@ numpy==1.26.4
 deskew==1.5.3
 scikit-image==0.22.0
 openai==1.30.1
+httpx==0.27.2
 tqdm
 dotenv

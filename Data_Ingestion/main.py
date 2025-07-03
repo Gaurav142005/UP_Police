@@ -40,7 +40,7 @@ class Update_circular_index:
         self.already_indexed = list(self.pdf_links.keys())
         pinecone_api_key = os.environ.get("PINECONE_API_KEY")
         pc = Pinecone(api_key=pinecone_api_key)
-        index_name = "up-police-circulars"
+        index_name = "bcs-up-police"
         self.index = pc.Index(index_name)
         self.data_fetcher = data_fetch(self.years)
         self.MAX_REQUEST_SIZE = 2_000_000 

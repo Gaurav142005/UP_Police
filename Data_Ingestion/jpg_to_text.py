@@ -162,7 +162,7 @@ class JPGtoTEXT:
             model=model_name,
         )
 
-        return response.choices[0].message.content
+        return response.choices[0].message.content if response.choices else ""
 
     def convert(self,already_indexed=None):
         # self.preprocess()
