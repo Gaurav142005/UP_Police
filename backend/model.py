@@ -12,7 +12,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import PromptTemplate, ChatPromptTemplate
-from langchain_core.pydantic_v1 import BaseModel, Field
+from pydantic import BaseModel, Field
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import tools_condition
 from langgraph.graph import END, StateGraph, START, MessagesState
@@ -20,7 +20,10 @@ from langgraph.prebuilt import ToolNode
 from langchain_core.tools import tool
 from langchain_voyageai import VoyageAIEmbeddings
 from deep_translator import GoogleTranslator
-import pprint
+from pathlib import Path
+import datetime
+import time
+
 
 load_dotenv()
 
@@ -46,6 +49,15 @@ docsearch = PineconeVectorStore(index=index, embedding=embeddings)
 with open('./drive_link_dictionary.json') as f:
     drive_link_dictionary = json.load(f)
 
+
+
+from google import genai
+
+
+
+
+
+
 class Conversation():
     def __init__(self):
         self.conv = {"conversation": []}
@@ -59,7 +71,7 @@ history = Conversation()
 class Chatbot:
     def __init__(self):
         self.llm = ChatGoogleGenerativeAI(
-                model="gemini-2.5-flash-lite-preview-06-17",
+                model="gemini-2.5-flash-lite",
                 temperature=0,
                 max_tokens=None,
                 timeout=None,
@@ -68,6 +80,83 @@ class Chatbot:
         self.workflow = self.create_workflow()
         self.relevant_sources = set()  # Initialize set for relevant sources
         self.source_scores = {}  # Store similarity scores for sorting
+        self.metrics = {
+            "run_id": datetime.datetime.utcnow().isoformat() + "Z",
+            "steps": [],
+            "totals": {
+                "total_duration_s": 0.0,
+                "total_input_tokens": 0,
+                "total_output_tokens": 0
+            }
+        }
+        self.logs_dir = Path("logs")
+        self.logs_dir.mkdir(parents=True, exist_ok=True)
+        self.client = genai.Client(api_key=os.environ.get("GOOGLE_API_KEY"))
+
+    def count_tokens_gemini(self, text: str) -> int:
+        total_tokens = self.client.models.count_tokens(
+            model= self.llm.model, contents=text
+        )
+        return total_tokens.total_tokens
+    
+
+    def _serialize_input(self, inputs) -> str:
+        # produce a stable textual representation for token counting and logging
+        if isinstance(inputs, (dict, list)):
+            return json.dumps(inputs, default=str, ensure_ascii=False)
+        return str(inputs)
+
+
+    def _extract_output_text(self, response) -> str:
+        # prefer .content (LLM response) otherwise fallback to str()
+        if hasattr(response, "content") and response.content is not None:
+            return response.content
+        return str(response)
+
+    def log_step(self, node_name: str, start_time: float, end_time: float, input_text: str, output_text: str, model_name: str = None):
+        """
+        Record a single step into self.metrics['steps'] and update totals.
+        Each step includes a 'model' field so different steps can record different models.
+        """
+        duration = end_time - start_time
+
+        # Count tokens using the provided gemini counting function
+        input_tokens = self.count_tokens_gemini(input_text) if len(input_text) > 0 else 0
+        output_tokens = self.count_tokens_gemini(output_text) if len(output_text) > 0 else 0
+
+
+        step = {
+            "node": node_name,
+            "model": model_name,
+            "duration_s": duration,
+            "input_chars": len(input_text),
+            "input_tokens": input_tokens,
+            "output_chars": len(output_text),
+            "output_tokens": output_tokens
+        }
+
+        # Append step and update totals
+        self.metrics["steps"].append(step)
+        self.metrics["totals"]["total_duration_s"] += duration
+        self.metrics["totals"]["total_input_tokens"] += int(input_tokens)
+        self.metrics["totals"]["total_output_tokens"] += int(output_tokens)
+
+        # persist incremental logs to disk
+        self.save_logs_to_disk()
+
+    def save_logs_to_disk(self):
+        """
+        Write the current metrics JSON to logs/<run_id>.json
+        """
+        fname = self.logs_dir / f"{self.metrics['run_id']}.json"
+        with open(fname, "w", encoding="utf-8") as f:
+            json.dump(self.metrics, f, indent=2, ensure_ascii=False)
+
+
+
+
+
+
 
     def create_workflow(self):
         class AgentState(TypedDict):
@@ -75,6 +164,7 @@ class Chatbot:
 
         def summarize_conversation(state):
             # First, we summarize the conversation
+            t0 = time.time()
             summary = history.get_summary()
             messages = state["messages"]
             history.add_message(messages[-1].content) # add the response to the history
@@ -98,15 +188,22 @@ class Chatbot:
                 input_variables=["summary_message", "conversation"],
             )
             chain = prompt | self.llm
-            response = chain.invoke(
-                {"summary_message": summary_message, "conversation": conversation}
-            )
+            response = chain.invoke({"summary_message": summary_message, "conversation": conversation})
             history.summary = response.content
+            t1 = time.time()
+            self.log_step(
+                node_name="summarize_conversation",
+                start_time=t0,
+                end_time=t1,
+                input_text=prompt.format(summary_message=summary_message, conversation=conversation),
+                output_text=response.content,
+                model_name=self.llm.model
+            )
             return {"messages": response.content}        
             
         def retrieve(state: dict) -> dict:
             """Retrieves relevant documents based on the rewritten query."""
-            
+            t0 = time.time()
             messages = state["messages"]
             query = messages[-1].content 
             # print("retrieve node per aa gye with query :" + query)
@@ -123,11 +220,19 @@ class Chatbot:
                 context += f"{i.metadata}" + "\n" + i.page_content + "\n\n"
 
             # Append the retrieved context to the state
+            t1 = time.time()
+            self.log_step(
+                node_name="retrieve",
+                start_time=t0,
+                end_time=t1,
+                input_text="",
+                output_text=""
+            )
             return {"messages": messages + [HumanMessage(content=context)]}
         
         def retrieve_again(state: dict) -> dict:
             """Retrieves relevant documents based on the rewritten query with similarity scoring."""
-            
+            t0 = time.time()
             messages = state["messages"]
             query = messages[-1].content 
             # print("retrieve again node per aa gye with query :" + query)
@@ -149,11 +254,22 @@ class Chatbot:
                     self.source_scores[doc.metadata['source']] = score
                     # print(f"\nAdding source: {doc.metadata['source']} with score: {score}\n\n")
                 context += f"{doc.metadata}" + "\n" + doc.page_content + "\n\n"
+            
+            t1 = time.time()
+            self.log_step(
+                node_name="retrieve_again",
+                start_time=t0,
+                end_time=t1,
+                input_text="",
+                output_text="",
+            )
 
             # Append the retrieved context to the state
             return {"messages": messages + [HumanMessage(content=context)]}
 
         def grade_documents(state) -> Literal["generate", "rewrite"]:
+            """Grades the relevance of retrieved documents to the user question."""
+            t0 = time.time()
             class Grade(BaseModel):
                 binary_score: str = Field(description="Relevance score 'yes' or 'no'")
 
@@ -175,6 +291,15 @@ class Chatbot:
             docs = last_message.content
             scored_result = chain.invoke({"question": question, "context": docs})
             score = scored_result.binary_score
+            t1 = time.time()
+            self.log_step(
+                node_name="grade_documents",
+                start_time=t0,
+                end_time=t1,
+                input_text=prompt.format(context=docs, question=question),
+                output_text=score,
+                model_name=self.llm.model
+            )
             return "rewrite" if score == "yes" else "generic_agent"
         
         def generic_agent(state):
@@ -186,7 +311,7 @@ class Chatbot:
             Returns:
                 dict: The updated state with the agent response appended to messages
             """
-            
+            t0 = time.time()
             summary = history.get_summary()
             if summary:
                 system_message = f"Summary of conversation earlier: {summary}"
@@ -209,6 +334,15 @@ class Chatbot:
 
             # Run
             response = generic_chain.invoke({"question": question, "system_message": system_message})
+            t1 = time.time()
+            self.log_step(
+                node_name="generic_agent",
+                start_time=t0,
+                end_time=t1,
+                input_text=prompt.format(system_message=system_message, question=question),
+                output_text=response,
+                model_name=self.llm.model
+            )
             return {"messages": [response]}
 
 
@@ -217,7 +351,7 @@ class Chatbot:
             """
             Transform the query to produce a better question.
             """
-            
+            t0 = time.time()
             class QueryRewrite(BaseModel):
                 rewritten_query: str = Field(description="The rewritten query or original query if no rewriting needed")
             
@@ -247,6 +381,16 @@ class Chatbot:
             # Extract only the rewritten query from the structured output
             rewritten_query = response.rewritten_query
             
+            t1 = time.time()
+
+            self.log_step(
+                node_name="rewrite",
+                start_time=t0,
+                end_time=t1,
+                input_text=prompt.format(question=question),
+                output_text=rewritten_query,
+                model_name=self.llm.model
+            )
             return {"messages": [HumanMessage(content=rewritten_query)]}
 
 
@@ -261,7 +405,7 @@ class Chatbot:
             Returns:
                 dict: The updated state with re-phrased question
             """
-
+            t0 = time.time()
             summary = history.get_summary()
             if summary:
                 system_message = f"Summary of conversation earlier: {summary}"
@@ -315,7 +459,15 @@ class Chatbot:
 
             # Run
             response = rag_chain.invoke({"context": docs, "question": question, "system_message": system_message})
-
+            t1 = time.time()
+            self.log_step(
+                node_name="generate",
+                start_time=t0,
+                end_time=t1,
+                input_text=prompt.format(context=docs, question=question, system_message=system_message),
+                output_text=response,
+                model_name=self.llm.model
+            )
             return {"messages": [response]}
 
 
@@ -402,3 +554,15 @@ class Chatbot:
                 final_response += f"<a href='{source}' target='_blank'>{source}</a><br>"
 
         return final_response
+
+import time
+
+if __name__ == "__main__":
+    chatbot = Chatbot()
+    query = input("Enter your query: ")
+    start = time.perf_counter()
+    response = chatbot.chatbot(query, language='english')
+    end = time.perf_counter()
+    print("Chatbot Response:")
+    print(response)
+    print(f"Time taken: {end - start:.3f} seconds")

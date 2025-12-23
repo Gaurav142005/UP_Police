@@ -62,17 +62,20 @@ cd Data_Ingestion
 Set up the environment - 
 
 ```
-python3 -m venv venv_openai
+python3.11 -m venv venv_openai
 source venv_openai/bin/activate
 pip install --upgrade pip
 pip install -r requirements_venv_openai.txt
 deactivate
-python3 -m venv venv_translate
+python3.11 -m venv venv_translate
 source venv_translate/bin/activate
 pip install --upgrade pip
 pip install -r requirements_venv_translate.txt
 deactivate
-
+python3.11 -m venv venv_general
+source ./venv_general/bin/activate
+pip install --upgrade pip
+pip install -r requirements_general.txt
 ```
 Run the main file -
 

@@ -6,8 +6,13 @@ import requests
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 
+import urllib3
+
+# 1. Suppress the SSL warning that appears when verify=False is used
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 # fetch once at module level
-t = requests.get("https://uppolice.gov.in/pages/en/topmenu/police-units/dg-police-hqrs/en-dgp-up-circulars")
+t = requests.get("https://uppolice.gov.in/pages/en/topmenu/police-units/dg-police-hqrs/en-dgp-up-circulars", verify=False)
 soup = BeautifulSoup(t.text, 'html.parser')
 
 class Circulars:
@@ -43,16 +48,15 @@ class Circulars:
                         pdf_url = "https://uppolice.gov.in/" + href.replace(' ', '%20')
                         pdfs.append(pdf_url)
 
-            already_in_folder = os.listdir(os.path.join('downloads', 'pdfs', year)) if os.path.exists(os.path.join('downloads', 'pdfs', year)) else []
-
+            already_in_folder = os.listdir(os.path.join('downloads', 'pdfs', str(year))) if os.path.exists(os.path.join('downloads', 'pdfs', str(year))) else []
 
             for pdf_url in tqdm(pdfs, desc=f'Downloading PDFs of year {year}'):
                 raw_name = pdf_url.rsplit('/', 1)[-1]
                 filename = self._sanitize_filename(raw_name)
-                # Check if the file already exists in the folder
+                
                 if filename in already_in_folder:
                     all_pdfs[filename] = pdf_url
-                    print(f"Skipping {filename}, already exists.")
+                    # print(f"Skipping {filename}, already exists.") # Optional: keep logs clean
                     continue
 
                 all_pdfs[filename] = pdf_url
@@ -61,7 +65,8 @@ class Circulars:
                 os.makedirs(folder_path, exist_ok=True)
                 file_path = os.path.join(folder_path, filename)
 
-                resp = requests.get(pdf_url)
+                # 3. Add verify=False here as well for the actual file download
+                resp = requests.get(pdf_url, verify=False)
                 with open(file_path, 'wb') as f:
                     f.write(resp.content)
 

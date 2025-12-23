@@ -85,6 +85,7 @@ class Update_circular_index:
         return cleaned
 
     def load_text_documents(self):
+        os.makedirs(self.txt_path, exist_ok=True)
         for year in os.listdir(self.txt_path):
             if(year in self.years):
                 year_path = os.path.join(self.txt_path, year)

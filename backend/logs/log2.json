@@ -1,0 +1,64 @@
+{
+  "run_id": "2025-12-23T07:43:20.508415Z",
+  "steps": [
+    {
+      "node": "retrieve",
+      "model": null,
+      "duration_s": 0.8931324481964111,
+      "input_chars": 0,
+      "input_tokens": 0,
+      "output_chars": 0,
+      "output_tokens": 0
+    },
+    {
+      "node": "grade_documents",
+      "model": "gemini-2.5-flash-lite",
+      "duration_s": 1.4196362495422363,
+      "input_chars": 18455,
+      "input_tokens": 4340,
+      "output_chars": 3,
+      "output_tokens": 2
+    },
+    {
+      "node": "rewrite",
+      "model": "gemini-2.5-flash-lite",
+      "duration_s": 0.7177684307098389,
+      "input_chars": 667,
+      "input_tokens": 133,
+      "output_chars": 130,
+      "output_tokens": 25
+    },
+    {
+      "node": "retrieve_again",
+      "model": null,
+      "duration_s": 1.2241194248199463,
+      "input_chars": 0,
+      "input_tokens": 0,
+      "output_chars": 0,
+      "output_tokens": 0
+    },
+    {
+      "node": "generate",
+      "model": "gemini-2.5-flash-lite",
+      "duration_s": 2.662832736968994,
+      "input_chars": 22569,
+      "input_tokens": 4978,
+      "output_chars": 944,
+      "output_tokens": 203
+    },
+    {
+      "node": "summarize_conversation",
+      "model": "gemini-2.5-flash-lite",
+      "duration_s": 3.7255470752716064,
+      "input_chars": 5261,
+      "input_tokens": 1065,
+      "output_chars": 2657,
+      "output_tokens": 535
+    }
+  ],
+  "totals": {
+    "total_duration_s": 10.643036365509033,
+    "total_input_tokens": 10516,
+    "total_output_tokens": 765
+  }
+}

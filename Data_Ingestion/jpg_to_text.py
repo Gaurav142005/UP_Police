@@ -136,9 +136,12 @@ class JPGtoTEXT:
 
 
     def correct_text(self, text):
-        api_key = os.environ.get("GEMINI_API_KEY")
-        endpoint = "https://generativelanguage.googleapis.com/v1beta/openai/"
-        model_name = "gemini-2.5-flash"
+        # api_key = os.environ.get("GOOGLE_API_KEY")
+        api_key = os.environ.get("GROQ_API_KEY")
+        # endpoint = "https://generativelanguage.googleapis.com/v1beta/openai/"
+        endpoint = "https://api.groq.com/openai/v1"
+        # model_name = "gemini-2.5-flash-lite"
+        model_name = "openai/gpt-oss-120b"
         
         client = OpenAI(base_url=endpoint,api_key=api_key)
 
@@ -167,7 +170,9 @@ class JPGtoTEXT:
     def convert(self,already_indexed=None):
         # self.preprocess()
         for year in self.years:
-            circulars = os.listdir(jpg_path + '/' + year)
+            year_dir = os.path.join(jpg_path, year)
+            os.makedirs(year_dir, exist_ok=True)
+            circulars = os.listdir(year_dir)
             already_exists = os.listdir(txt_path + '/' + year) if os.path.exists(txt_path + '/' + year) else []
             for circular in tqdm.tqdm(circulars, desc=f"Extracting text from circulars of {year}"):
                 if circular + '.txt' in already_exists:
@@ -237,7 +242,7 @@ class JPGtoTEXT:
                     # Remove unnecessary newlines
                     formatted_text = '\n'.join(line for line in output_lines if line.strip() != "\n") 
                     # Implement rate limiting to call correct_text exactly 8 times per minute
-                    if iteration_count % 8 == 0 and iteration_count != 0:
+                    if iteration_count % 2 == 0 and iteration_count != 0:
                         time.sleep(60)  # Sleep for 60 seconds after every 8 calls
                     
                     formatted_text = self.correct_text(self.remove_special_characters(formatted_text))

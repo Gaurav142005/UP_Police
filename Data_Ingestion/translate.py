@@ -3,9 +3,11 @@ import time
 from googletrans import Translator
 
 cwd = os.getcwd()
-txt_path = cwd + '/downloads/txts'
+
 translated_data = cwd + '/downloads/translated_data'
 
+txt_path = os.path.join(cwd, 'downloads', 'txts')
+os.makedirs(txt_path, exist_ok=True)
 years = os.listdir(txt_path)
 
 class Translate:
